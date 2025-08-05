@@ -8,14 +8,14 @@ from .database import db
 
 # Define the paziente entity
 class Paziente(User):
-    name = Optional(str)
-    surname = Optional(str)
+    name = Required(str)
+    surname = Required(str)
     birth_date = Optional(datetime)
     eta = Optional(int)
     telefono = Optional(str)
 
     #Rlations
-    doctors = Set("Doctor", reverse="patients")
+    doctors = Set("Medico", reverse="patients")
     # Valore fisso per il discriminator
-    role = "patient"
+    role = "paziente"
     
