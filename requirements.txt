@@ -1,0 +1,6 @@
+flask
+dash
+dash-bootstrap-components
+flask-login
+pony
+sqlalchemy
