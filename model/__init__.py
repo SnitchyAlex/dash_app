@@ -47,5 +47,5 @@ __all__ = [
     'db', 'User', 'Paziente', 'Medico',
     'assign_doctor_to_patient', 'remove_doctor_from_patient',
     'get_patient_doctors', 'get_doctor_patients',
-    'get_patient_info', 'get_doctor_info'
+    'get_patient_info', 'get_doctor_info', 'get_user_by_username', 'add_user', 'validate_user'
 ]

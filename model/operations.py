@@ -31,8 +31,8 @@ def initialize_db():
             # Crea un paziente di esempio
             paziente = Paziente(
                 username='anna.sandre', 
-                password_hash=generate_password_hash('anna.sandre'), 
-                is_admin=False,  # Un paziente non dovrebbe essere admin
+                password_hash=generate_password_hash('anna'), 
+                is_admin=False,
                 name='Anna',
                 surname='Sandre',
                 telefono='123456789',
@@ -114,6 +114,35 @@ def assign_doctor_to_patient(patient_username, doctor_username):
         return True
     return False
 
+@db_session
+def get_user_by_username(username):
+    """Get a user by username"""
+    from .user import User
+    return User.get(username=username)
+
+@db_session
+def add_user(username, password, email=None, is_admin=False):
+    """Add a new user to the database"""
+    from .user import User
+    if User.get(username=username):
+        return False
+    
+    User(
+        username=username, 
+        password_hash=generate_password_hash(password),
+        is_admin=is_admin,
+        role='paziente' #paziente è il ruolo di default
+    )
+    return True
+
+@db_session
+def validate_user(username, password):
+    """Validate user credentials"""
+    from .user import User
+    user = User.get(username=username)
+    if user and user.check_password(password):
+        return user
+    return None
 
 @db_session
 def remove_doctor_from_patient(patient_username, doctor_username):

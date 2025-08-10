@@ -7,6 +7,9 @@ import os
 # Importa il modello
 import model
 
+from controller.auth import register_auth_callbacks
+from view.layout import get_main_layout
+
 # Initialize the Dash app with Bootstrap styling
 app = dash.Dash(
     __name__, 
@@ -24,12 +27,20 @@ login_manager = LoginManager()
 login_manager.init_app(server)
 login_manager.login_view = '/login'
 
+# Set app layout
+
+app.layout = get_main_layout()
+
 # User loader per Flask-Login
 @login_manager.user_loader
 def load_user(username):
     from pony.orm import db_session
     with db_session:
         return model.User.get(username=username)
+    
+# Register all callbacks
+register_auth_callbacks(app)
+
 
 # Run the app
 if __name__ == '__main__':
