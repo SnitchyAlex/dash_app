@@ -26,7 +26,7 @@ def configure_db():
     db_path = os.path.join(data_dir, 'dash_app.sqlite')
     print(f"Database path: {db_path}")
     
-    # Se il database esiste ma è vuoto, rimuovilo
+    # Se il database esiste ma è vuoto/corrotto, rimuovilo
     if os.path.exists(db_path):
         file_size = os.path.getsize(db_path)
         if file_size == 0:

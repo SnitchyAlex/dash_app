@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 from flask_login import LoginManager
 import os
 
-# Importa il modulo model
+# Importa il modello
 import model
 
 # Initialize the Dash app with Bootstrap styling
@@ -29,7 +29,7 @@ login_manager.login_view = '/login'
 def load_user(username):
     from pony.orm import db_session
     with db_session:
-        return model.User.get(username=username)  # Usa username invece di id
+        return model.User.get(username=username)
 
 # Run the app
 if __name__ == '__main__':
