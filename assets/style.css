@@ -1,21 +1,23 @@
-/* Medical Green Theme - Stile moderno sanitario */
-
+/*stile css */
 :root {
-    --primary-green: #10b981;      /* Verde smeraldo moderno */
-    --secondary-green: #059669;    /* Verde più scuro */
-    --light-green: #34d399;        /* Verde chiaro per accenti */
-    --very-light-green: #d1fae5;   /* Verde molto chiaro per background */
-    --dark-green: #047857;         /* Verde scuro per testi */
-    --medical-blue: #0ea5e9;       /* Blu medico di supporto */
-    --soft-gray: #f8fafc;          /* Grigio soft per background */
+    --primary-green: #10b981;      
+    --secondary-green: #059669;    
+    --light-green: #34d399;        
+    --very-light-green: #d1fae5;   
+    --dark-green: #047857;         
+    --medical-blue: #0ea5e9;       
+    --soft-gray: #f8fafc;         
     --white: #ffffff;
     --text-dark: #1f2937;
     --text-light: #6b7280;
+    --primary-red: #FA4646;
+    --secondary-red: #fd8e8e;
 }
 
 /* Body e background generale */
 body {
-    background: linear-gradient(135deg, var(--very-light-green) 0%, var(--soft-gray) 100%);
+    background: url('/assets/sfondo.gif') no-repeat center center fixed;
+    background-size: cover;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     min-height: 100vh;
 }
@@ -23,7 +25,7 @@ body {
 /* Container principale */
 .main-container {
     min-height: 100vh;
-    background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 50%, #ffffff 100%);
+    background: transparent; /* Trasparente per mostrare la GIF di sfondo */
 }
 
 /* Card styling con effetto moderno */
@@ -80,6 +82,17 @@ body {
 /* Bottoni moderni con gradiente */
 .btn-primary {
     background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-weight: 600;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-red {
+    background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
     border: none;
     border-radius: 12px;
     padding: 12px 24px;

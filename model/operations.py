@@ -1,6 +1,7 @@
 from pony.orm import db_session, select, delete, commit, desc, count
 from werkzeug.security import generate_password_hash
 from datetime import date, datetime
+from pony.orm import commit
 
 @db_session
 def initialize_db():
@@ -121,19 +122,71 @@ def get_user_by_username(username):
     return User.get(username=username)
 
 @db_session
-def add_user(username, password, email=None, is_admin=False):
+def add_user(username, password, name, surname, telefono=None, role="User", is_admin=False):
     """Add a new user to the database"""
     from .user import User
+    from .medico import Medico
+    from .paziente import Paziente
+
     if User.get(username=username):
         return False
     
-    User(
-        username=username, 
-        password_hash=generate_password_hash(password),
-        is_admin=is_admin,
-        role='paziente' #paziente è il ruolo di default
-    )
-    return True
+    password_hash = generate_password_hash(password)
+    try:
+        if role.lower() == "medico":
+            user = Medico(
+                username=username,
+                password_hash=password_hash,
+                name=name,
+                surname=surname,
+                telefono=telefono,
+                is_admin=is_admin
+            )
+        elif role.lower() == "paziente":
+            user = Paziente(
+                username=username,
+                password_hash=password_hash,
+                name=name,
+                surname=surname,
+                telefono=telefono,
+                is_admin=is_admin
+            )
+        else:
+             user = User(
+                username=username,
+                password_hash=password_hash,
+                name=name,
+                surname=surname,
+                telefono=telefono,
+                is_admin=is_admin
+            )
+        commit()
+        return True
+
+    except Exception as e:
+        return False
+
+@db_session
+def delete_user(username):
+    """Elimina un utente (solo per admin)"""
+    from .user import User
+    
+    try:
+        user = User.get(username=username)
+        if not user:
+            return False
+        
+        # Non permettere di eliminare admin
+        if user.role == "admin":
+            return False
+        
+        user.delete()
+        return True
+    
+    except Exception as e:
+        print(f"Errore durante l'eliminazione dell'utente {username}: {e}")
+        return False
+
 
 @db_session
 def validate_user(username, password):
@@ -143,21 +196,6 @@ def validate_user(username, password):
     if user and user.check_password(password):
         return user
     return None
-
-@db_session
-def remove_doctor_from_patient(patient_username, doctor_username):
-    """Rimuove un medico da un paziente"""
-    from .paziente import Paziente
-    from .medico import Medico
-    
-    paziente = Paziente.get(username=patient_username)
-    medico = Medico.get(username=doctor_username)
-    
-    if paziente and medico and medico in paziente.doctors:
-        paziente.doctors.remove(medico)
-        print(f"Removed doctor {medico.name} from patient {paziente.name}")
-        return True
-    return False
 
 
 @db_session
@@ -182,39 +220,3 @@ def get_doctor_patients(doctor_username):
     return []
 
 
-@db_session
-def get_patient_info(patient_username):
-    """Ottieni informazioni complete di un paziente"""
-    from .paziente import Paziente
-    
-    paziente = Paziente.get(username=patient_username)
-    if paziente:
-        return {
-            'username': paziente.username,
-            'name': paziente.name,
-            'surname': paziente.surname,
-            'telefono': paziente.telefono,
-            'eta': paziente.eta,
-            'codice_fiscale': paziente.codice_fiscale,
-            'birth_date': paziente.birth_date,
-            'doctors': [{'username': d.username, 'name': f"Dr. {d.name} {d.surname}", 'specializzazione': d.specializzazione} for d in paziente.doctors]
-        }
-    return None
-
-
-@db_session
-def get_doctor_info(doctor_username):
-    """Ottieni informazioni complete di un medico"""
-    from .medico import Medico
-    
-    medico = Medico.get(username=doctor_username)
-    if medico:
-        return {
-            'username': medico.username,
-            'name': medico.name,
-            'surname': medico.surname,
-            'telefono': medico.telefono,
-            'specializzazione': medico.specializzazione,
-            'patients': [{'username': p.username, 'name': f"{p.name} {p.surname}", 'eta': p.eta} for p in medico.patients]
-        }
-    return None

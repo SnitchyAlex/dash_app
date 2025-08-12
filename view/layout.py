@@ -17,22 +17,23 @@ def get_dashboard_layout(username):
         dbc.Button("Logout", href="/logout", color="secondary")
     ])
 
-def get_login_page():
-    """Pagina di login completa con styling"""
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        get_login_layout()
-                    ])
-                ], className="shadow")
-            ], width=6)
-        ], justify="center", className="min-vh-100 align-items-center")
-    ])
+
 def get_welcome_page():
     """Pagina di benvenuto iniziale"""
-    return dbc.Container([
+    return html.Div([
+        # GIF posizionata in alto a destra
+        html.Img(
+            src="/assets/health.png",
+            style={
+                "position": "fixed",
+                "top": "20px",
+                "right": "20px",
+                "width": "150px",
+                "height": "auto",
+                "z-index": "1000"
+            }
+        ),
+    dbc.Container([
         dbc.Row([
             dbc.Col([
                 dbc.Card([
@@ -41,14 +42,21 @@ def get_welcome_page():
                         html.P("Accedi per continuare o registrati", className="text-center text-muted mb-4"),
                         dbc.Row([
                             dbc.Col([
-                                dbc.Button("Vai al Login", href="/login", size="lg",className="welcome-btn")
+                                dbc.Button([
+                                    html.Img(src="/assets/login.png", style={"width": "20px", "height": "20px", "marginRight": "8px"}),
+                                    "Vai al Login"
+                            ], href="/login", size="lg",className="welcome-btn")
                         ], width = 5),
                         dbc.Col([
-                            dbc.Button("Registrati", href="/register", color="outline-primary", size="lg",className="welcome-btn")
-                        ], width = 3)
+                            dbc.Button([
+                                html.Img(src="/assets/register.png", style={"width": "20px", "height": "20px", "marginRight": "8px"}),
+                                "Registrati"
+                            ], href="/register", color="outline-primary", size="lg",className="welcome-btn")
+                        ], width = 4)
                     ],justify="center")
                 ])
                 ], className="shadow")
             ], width=6)
         ], justify="center", className="min-vh-100 align-items-center")
     ])
+])

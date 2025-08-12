@@ -36,16 +36,16 @@ else:
 # Import delle funzioni di operations per renderle disponibili
 from .operations import (
     assign_doctor_to_patient,
-    remove_doctor_from_patient,
     get_patient_doctors,
     get_doctor_patients,
-    get_patient_info,
-    get_doctor_info
+    add_user,
+    delete_user,
+    get_user_by_username,
+    validate_user
 )
 
 __all__ = [
     'db', 'User', 'Paziente', 'Medico',
-    'assign_doctor_to_patient', 'remove_doctor_from_patient',
-    'get_patient_doctors', 'get_doctor_patients',
-    'get_patient_info', 'get_doctor_info', 'get_user_by_username', 'add_user', 'validate_user'
+    'assign_doctor_to_patient','get_user_by_username', 'add_user', 'validate_user', 'delete_user',
+    'get_patient_doctors', 'get_doctor_patients'
 ]

@@ -6,10 +6,12 @@ from flask_login import login_user, logout_user, current_user
 from pony.orm import db_session
 from dash import html, dcc
 from model.operations import validate_user, get_user_by_username
+from controller.admin import register_admin_callbacks
 
 def register_auth_callbacks(app):
     """Register authentication-related callbacks"""
     
+    register_admin_callbacks(app)
     # Callback for login form
     @app.callback(
         [Output('login-output', 'children'),
@@ -27,9 +29,9 @@ def register_auth_callbacks(app):
         user = validate_user(username, password)
         if user:
             login_user(user)
-            return dbc.Alert('Login successful!', color='success'), '/dashboard'
+            return dbc.Alert('Login effettuato!', color='success'), '/dashboard'
         else:
-            return dbc.Alert('Invalid username or password', color='danger'), dash.no_update
+            return dbc.Alert('Username o password non validi', color='danger'), dash.no_update
     # Callback per abilitare/disabilitare il bottone login
     @app.callback(
         Output('login-button', 'disabled'),
@@ -55,13 +57,17 @@ def register_auth_callbacks(app):
             return get_welcome_page()
         elif pathname == '/login':
             # Pagina di login
-            from view.layout import get_login_page
+            from view.auth import get_login_page
             return get_login_page()
         elif pathname == '/dashboard':
             # Dashboard (solo se autenticato)
             if current_user.is_authenticated:
-                from view.layout import get_dashboard_layout
-                return get_dashboard_layout(current_user.username)
+                if current_user.is_admin:
+                    from view.admin import get_admin_dashboard
+                    return get_admin_dashboard()
+                else:
+                    from view.layout import get_dashboard_layout
+                    return get_dashboard_layout(current_user.username)
             else:
                 return dcc.Location(pathname='/login', id='redirect-to-login')
         elif pathname == '/logout':
@@ -69,4 +75,4 @@ def register_auth_callbacks(app):
             logout_user()
             return dcc.Location(pathname='/', id='redirect-after-logout')
         else:
-            return html.Div("404 - Pagina non trovata")
+            return html.Div(" 404 - Pagina non trovata")

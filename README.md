@@ -17,8 +17,10 @@ A web application built with Dash and following the Model-View-Controller (MVC) 
 dash_app/
 │
 ├── model/              # Model (DB e dati)
-│   ├── database.py     # Config SQLite
-│   └── entities.py     # Classi/tabelle DB
+│   |__ __init__.py
+|   ├── database.py     # Config SQLite
+│   |── medico.py       # Classi/tabelle DB
+|   ├── user.py 
 │
 ├── views/              # View (UI)
 │   ├── layout.py       # Layout Dash
