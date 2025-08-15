@@ -1,4 +1,5 @@
 # controller/admin.py
+from datetime import datetime
 import dash
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
@@ -10,6 +11,13 @@ from model.user import User
 from model.medico import Medico
 from model.paziente import Paziente
 from pony.orm import commit
+
+from view.admin import (
+    get_create_user_form, 
+    get_delete_user_form,
+    get_patients_list,
+    get_doctors_list
+)
 
 def register_admin_callbacks(app):
     """Register admin-related callbacks"""
@@ -41,6 +49,32 @@ def register_admin_callbacks(app):
         
         return dash.no_update
     
+    @app.callback(
+        [Output('new-eta', 'value'),
+         Output('new-eta', 'disabled'),
+         Output('new-eta', 'placeholder')],
+        [Input('new-birth-date', 'value')],
+        prevent_initial_call=False
+    )
+    def calculate_age_from_birth_date(birth_date):
+        if birth_date:
+            try:
+                # Calcola l'età dalla data di nascita
+                birth_date_obj = datetime.strptime(birth_date, '%Y-%m-%d')
+                today = datetime.now()
+                age = today.year - birth_date_obj.year
+                
+                # Verifica se il compleanno è già passato quest'anno
+                if today.month < birth_date_obj.month or (today.month == birth_date_obj.month and today.day < birth_date_obj.day):
+                    age -= 1
+                
+                return age, True, f"Calcolata automaticamente: {age} anni"
+            except:
+                return None, False, "Inserisci età (opzionale)"
+        else:
+            # Se non c'è data di nascita, permetti inserimento manuale dell'età
+            return None, False, "Inserisci età (opzionale)"
+    
     # Callback per gestire la creazione di un nuovo utente
     @app.callback(
         [Output('create-user-output', 'children'),
@@ -51,7 +85,7 @@ def register_admin_callbacks(app):
          Output('new-telefono', 'value'),
          Output('new-role', 'value'),
          Output('new-specializzazione', 'value'),
-         Output('new-eta', 'value'),
+         Output('new-birth-date', 'value'),
          Output('new-codice-fiscale', 'value')],
         [Input('submit-new-user', 'n_clicks')],
         [State('new-username', 'value'),
@@ -61,13 +95,14 @@ def register_admin_callbacks(app):
          State('new-telefono', 'value'),
          State('new-role', 'value'),
          State('new-specializzazione', 'value'),
+         State('new-birth-date', 'value'),
          State('new-eta', 'value'),
          State('new-codice-fiscale', 'value')],
         prevent_initial_call=True
     )
     @db_session
     def create_new_user(submit_clicks, username, password, name, surname, 
-                       telefono, role, specializzazione, eta, codice_fiscale):
+                       telefono, role, specializzazione, birth_date, eta, codice_fiscale):
         
         if not submit_clicks:
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -77,6 +112,32 @@ def register_admin_callbacks(app):
             return dbc.Alert('Tutti i campi obbligatori devono essere compilati!', 
                            color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
         
+        if role == 'paziente':
+            # Validazione età se inserita manualmente (senza data di nascita)
+            if eta is not None and not birth_date:
+                try:
+                    eta_int = int(eta)
+                    if eta_int < 0 or eta_int > 125:
+                        return dbc.Alert('L\'età deve essere compresa tra 0 e 125 anni!', 
+                                       color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                except (ValueError, TypeError):
+                    return dbc.Alert('L\'età deve essere un numero valido!', 
+                                   color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            
+            # Validazione data di nascita
+            if birth_date:
+                try:
+                    birth_date_obj = datetime.strptime(birth_date, '%Y-%m-%d')
+                    if birth_date_obj.year < 1900:
+                        return dbc.Alert('La data di nascita non può essere precedente al 1900!', 
+                                       color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    if birth_date_obj > datetime.now():
+                        return dbc.Alert('La data di nascita non può essere nel futuro!', 
+                                       color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                except:
+                    return dbc.Alert('Formato data non valido!', 
+                                   color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
         try:
             # Controlla se l'utente esiste già
             if get_user_by_username(username):
@@ -92,7 +153,7 @@ def register_admin_callbacks(app):
                     password_hash=generate_password_hash(password),
                     name=name,
                     surname=surname,
-                    telefono=telefono or None,
+                    telefono=telefono if telefono else '',
                     is_admin=False,
                     specializzazione=specializzazione or None
                 )
@@ -103,8 +164,9 @@ def register_admin_callbacks(app):
                     password_hash=generate_password_hash(password),
                     name=name,
                     surname=surname,
-                    telefono=telefono or None,
+                    telefono=telefono if telefono else '',
                     is_admin=False,
+                    birth_date=datetime.strptime(birth_date, '%Y-%m-%d') if birth_date else None,
                     eta=int(eta) if eta else None,
                     codice_fiscale=codice_fiscale or None
                 )
@@ -115,7 +177,7 @@ def register_admin_callbacks(app):
                     password_hash=generate_password_hash(password),
                     name=name,
                     surname=surname,
-                    telefono=telefono or None,
+                    telefono= telefono if telefono else '',
                     is_admin=False
                 )
             commit()
@@ -126,7 +188,7 @@ def register_admin_callbacks(app):
         except Exception as e:
             print(f"Errore durante la creazione dell'utente: {e}")
             return (dbc.Alert(f'Errore durante la creazione: {str(e)}', color='danger'),
-                   dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update)
+                 dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update)
     
     # Callback per mostrare/nascondere i campi specifici in base al ruolo
     @app.callback(
@@ -154,203 +216,65 @@ def register_admin_callbacks(app):
         if not all([username, password, name, surname, role]):
             return True
         return False
-
-
-# Funzioni helper per generare i diversi contenuti
-def get_create_user_form():
-    """Restituisce il form per creare un nuovo utente"""
-    return dbc.Card([
-        dbc.CardHeader(html.H4("➕ Crea Nuovo Utente")),
-        dbc.CardBody([
-            # Output per messaggi
-            html.Div(id="create-user-output"),
-            
-            # Form fields
-            dbc.Row([
-                dbc.Col([
-                    dbc.Label("Username *", className="form-label"),
-                    dbc.Input(id="new-username", type="text", placeholder="Inserisci username")
-                ], md=6),
-                dbc.Col([
-                    dbc.Label("Password *", className="form-label"),
-                    dbc.Input(id="new-password", type="password", placeholder="Inserisci password")
-                ], md=6)
-            ], className="mb-3"),
-            
-            dbc.Row([
-                dbc.Col([
-                    dbc.Label("Nome *", className="form-label"),
-                    dbc.Input(id="new-name", type="text", placeholder="Inserisci nome")
-                ], md=6),
-                dbc.Col([
-                    dbc.Label("Cognome *", className="form-label"),
-                    dbc.Input(id="new-surname", type="text", placeholder="Inserisci cognome")
-                ], md=6)
-            ], className="mb-3"),
-            
-            dbc.Row([
-                dbc.Col([
-                    dbc.Label("Telefono", className="form-label"),
-                    dbc.Input(id="new-telefono", type="text", placeholder="Inserisci telefono")
-                ], md=6),
-                dbc.Col([
-                    dbc.Label("Ruolo *", className="form-label"),
-                    dbc.Select(
-                        id="new-role",
-                        options=[
-                            {"label": "Seleziona ruolo...", "value": ""},
-                            {"label": "👨‍⚕️ Medico", "value": "medico"},
-                            {"label": "👤 Paziente", "value": "paziente"},
-                            {"label": "👥 Utente", "value": "user"}
-                        ],
-                        value=""
-                    )
-                ], md=6)
-            ], className="mb-3"),
-            
-            # Campi specifici per medico
-            html.Div(id="medico-fields", style={'display': 'none'}, children=[
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Label("Specializzazione", className="form-label"),
-                        dbc.Input(id="new-specializzazione", type="text", 
-                                 placeholder="Es: Cardiologia, Neurologia... (opzionale)")
-                    ], md=12)
-                ], className="mb-3")
-            ]),
-            
-            # Campi specifici per paziente
-            html.Div(id="paziente-fields", style={'display': 'none'}, children=[
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Label("Età", className="form-label"),
-                        dbc.Input(id="new-eta", type="number", placeholder="Inserisci età (opzionale)")
-                    ], md=6),
-                    dbc.Col([
-                        dbc.Label("Codice Fiscale", className="form-label"),
-                        dbc.Input(id="new-codice-fiscale", type="text", 
-                                 placeholder="Inserisci codice fiscale (opzionale)")
-                    ], md=6)
-                ], className="mb-3")
-            ]),
-            
-            # Bottoni
-            html.Div([
-                dbc.Button("Crea Utente", id="submit-new-user", 
-                         color="success", disabled=True)
-            ], className="text-end")
-        ])
-    ], className="card mb-4")
-
-
-@db_session
-def get_doctors_list():
-    """Restituisce la lista di tutti i medici"""
-    medici = Medico.select()
     
-    if not medici:
-        return dbc.Alert("Nessun medico trovato nel sistema.", color="info")
+    # Callback per gestire l'eliminazione dell'utente
+    @app.callback(
+        [Output('delete-user-output', 'children'),
+        Output('user-to-delete', 'value')],
+        [Input('submit-delete-user', 'n_clicks')],
+        [State('user-to-delete', 'value')],
+        prevent_initial_call=True
+    )
+    @db_session
+    def delete_selected_user(submit_clicks, selected_username):
+        if not submit_clicks or not selected_username:
+            return dash.no_update, dash.no_update
     
-    doctors_cards = []
-    for medico in medici:
-        # Conta i pazienti assegnati
-        num_patients = len(medico.patients)
+        try:
+        # Importa le funzioni dal model
+            from model.operations import get_user_by_username, delete_user_with_relations
         
-        card = dbc.Card([
-            dbc.CardBody([
-                html.Div([
-                    html.H5([
-                        html.Img(src="/assets/doctor.png", style={"width": "30px", "height": "30px", "marginRight": "8px"}),
-                        f"Dr. {medico.name} {medico.surname}"], className="card-title text-primary"),
-                    html.P([
-                        html.Strong("Username: "), medico.username
-                    ], className="card-text mb-1"),
-                    html.P([
-                        html.Strong("Specializzazione: "), 
-                        medico.specializzazione or "Non specificata"
-                    ], className="card-text mb-1"),
-                    html.P([
-                        html.Strong("Telefono: "), 
-                        medico.telefono or "Non disponibile"
-                    ], className="card-text mb-1"),
-                    html.P([
-                        html.Strong("Pazienti assegnati: "), 
-                        html.Span(str(num_patients), className="badge bg-primary")
-                    ], className="card-text")
-                ])
-            ])
-        ], color="primary", outline=True, className="mb-3")
+        # Ottieni l'utente da eliminare
+            user_to_delete = get_user_by_username(selected_username)
+            if not user_to_delete:
+                return dbc.Alert('Utente non trovato!', color='danger'), dash.no_update
         
-        doctors_cards.append(card)
-    
-    return html.Div([
-        html.H3(
-            f"Medici Registrati ({len(doctors_cards)})", className="mb-4"),
-        html.Div(doctors_cards)
-    ])
+        # Non permettere di eliminare admin
+            if user_to_delete.is_admin:
+                return dbc.Alert('Non è possibile eliminare un utente amministratore!', color='danger'), dash.no_update
 
-
-@db_session  
-def get_patients_list():
-    """Restituisce la lista di tutti i pazienti"""
-    pazienti = Paziente.select()
-    
-    if not pazienti:
-        return dbc.Alert("Nessun paziente trovato nel sistema.", color="info")
-    
-    patients_cards = []
-    for paziente in pazienti:
-        # Conta i medici assegnati
-        num_doctors = len(paziente.doctors)
+        # if hasattr(current_user, 'username') and current_user.username == selected_username:
+        # return dbc.Alert('Non puoi eliminare il tuo stesso account!', color='danger'), dash.no_update
         
-        card = dbc.Card([
-            dbc.CardBody([
-                html.Div([
-                    html.H5([
-                        html.Img(src="/assets/patient.png", style={"width": "30px", "height": "30px", "marginRight": "5px"}),
-                        f"{paziente.name} {paziente.surname}"], className="card-title text-info"),
-                    html.P([
-                        html.Strong("Username: "), paziente.username
-                    ], className="card-text mb-1"),
-                    html.P([
-                        html.Strong("Età: "), 
-                        str(paziente.eta) if paziente.eta else "Non specificata"
-                    ], className="card-text mb-1"),
-                    html.P([
-                        html.Strong("Codice Fiscale: "), 
-                        paziente.codice_fiscale or "Non disponibile"
-                    ], className="card-text mb-1"),
-                    html.P([
-                        html.Strong("Telefono: "), 
-                        paziente.telefono or "Non disponibile"  
-                    ], className="card-text mb-1"),
-                    html.P([
-                        html.Strong("Medici assegnati: "), 
-                        html.Span(str(num_doctors), className="badge bg-info")
-                    ], className="card-text")
-                ])
-            ])
-        ], color="info", outline=True, className="mb-3")
+        # Elimina l'utente con le sue relazioni
+            success, message = delete_user_with_relations(selected_username)
         
-        patients_cards.append(card)
+            if success:
+                return dbc.Alert(message, color='success'), ''
+            else:
+             return dbc.Alert(f'Errore durante l\'eliminazione: {message}', color='danger'), dash.no_update
+        
+        except Exception as e:
+            print(f"Errore durante l'eliminazione dell'utente: {e}")
+            return dbc.Alert(f'Errore durante l\'eliminazione: {str(e)}', color='danger'), dash.no_update
+
+# Callback per popolare la dropdown degli utenti
+    @app.callback(
+        Output('user-to-delete', 'options'),
+        [Input('delete-user-button', 'n_clicks'),
+         Input('refresh-users-list', 'n_clicks')],
+        prevent_initial_call=False
+    )
+    @db_session 
+    def update_users_dropdown(delete_clicks, refresh_clicks):
+        """Aggiorna la dropdown con tutti gli utenti disponibili"""
+        from model.operations import get_all_users_for_dropdown
     
-    return html.Div([
-        html.H3(
-            f"Pazienti Registrati ({len(patients_cards)})", className="mb-4"),
-        html.Div(patients_cards)
-    ])
+        try:
+            users_options = get_all_users_for_dropdown()
+            return users_options
+        except Exception as e:
+            print(f"Errore nel caricamento utenti: {e}")
+            return []
 
-
-def get_delete_user_form():
-    """Restituisce il form per eliminare un utente"""
-    return dbc.Card([
-        dbc.CardHeader(html.H4("🗑️ Elimina Utente")),
-        dbc.CardBody([
-            dbc.Alert([
-                html.H6("⚠️ Attenzione!", className="alert-heading"),
-                html.P("Questa operazione è irreversibile. Seleziona con attenzione l'utente da eliminare.")
-            ], color="warning"),
-            
-            html.P("Funzionalità in sviluppo... 🚧", className="text-muted")
-        ])
-    ], className="card mb-4")
+    

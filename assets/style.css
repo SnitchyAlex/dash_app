@@ -116,6 +116,12 @@ body {
     transform: none;
 }
 
+.btn-red:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(250, 70, 70, 0.4);
+    background: linear-gradient(135deg, #ff6b6b, var(--primary-red));
+}
+
 /* Alert moderni */
 .alert {
     border: none;

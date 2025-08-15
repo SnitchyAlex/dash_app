@@ -15,7 +15,7 @@ class User(db.Entity, UserMixin):
     # Solo attributi comuni a tutti
     name = Required(str)
     surname = Required(str)
-    telefono = Optional(str)
+    telefono = Optional(str, default='')
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)

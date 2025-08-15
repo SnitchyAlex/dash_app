@@ -47,5 +47,5 @@ from .operations import (
 __all__ = [
     'db', 'User', 'Paziente', 'Medico',
     'assign_doctor_to_patient','get_user_by_username', 'add_user', 'validate_user', 'delete_user',
-    'get_patient_doctors', 'get_doctor_patients'
+    'get_patient_doctors', 'get_doctor_patients', 'delete_user_with_relations', 'get_all_users_for_dropdown', 'check_user_relations'
 ]
