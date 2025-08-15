@@ -27,7 +27,15 @@ def initialize_db():
                 surname='Gallista',
             )
             print(f"Created admin: {admin.username}")
-            
+
+            admin2 = User(
+                username='indi',
+                password_hash=generate_password_hash('indi'),
+                is_admin=True,
+                name='Indira',
+                surname='Adilovic',
+            )
+            print(f"Created admin: {admin2.username}")
             # Crea un paziente di esempio
             paziente = Paziente(
                 username='anna.sandre', 
@@ -74,6 +82,7 @@ def initialize_db():
             
             print("=== Initialization Summary ===")
             print(f"Admin: {admin.username} ({admin.name} {admin.surname}) - Role: {admin.role}")
+            print(f"Admin2: {admin2.username} ({admin2.name} {admin2.surname}) - Role: {admin2.role}")
             print(f"Patient: {paziente.username} ({paziente.name} {paziente.surname}) - Role: {paziente.role}")
             print(f"  - Age: {paziente.eta}, CF: {paziente.codice_fiscale}")
             print(f"  - Assigned doctors: {len(paziente.doctors)}")
