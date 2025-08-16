@@ -235,6 +235,7 @@ def delete_user_with_relations(username):
     from .user import User
     from .medico import Medico
     from .paziente import Paziente
+    from .glicemia import Glicemia  # AGGIUNTA: Import del modello Glicemia
     
     try:
         user = User.get(username=username)
@@ -261,13 +262,24 @@ def delete_user_with_relations(username):
         
         elif hasattr(user, 'codice_fiscale'):  # È un paziente
             paziente = Paziente.get(username=username)
-            if paziente and hasattr(paziente, 'doctors'):
-                num_doctors = len(paziente.doctors)
-                if num_doctors > 0:
-                    # Rimuovi tutte le relazioni paziente-medico
-                    for medico in list(paziente.doctors):
-                        paziente.doctors.remove(medico)
-                    relations_removed.append(f"{num_doctors} relazioni paziente-medico")
+            if paziente:
+                # AGGIUNTA: Elimina tutte le registrazioni glicemiche del paziente
+                if hasattr(paziente, 'glicemie'):
+                    glicemie_count = paziente.glicemie.count()
+                    if glicemie_count > 0:
+                        # Elimina tutte le registrazioni glicemiche
+                        for glicemia in list(paziente.glicemie):
+                            glicemia.delete()
+                        relations_removed.append(f"{glicemie_count} registrazioni glicemiche")
+                
+                # Gestisci le relazioni paziente-medico
+                if hasattr(paziente, 'doctors'):
+                    num_doctors = len(paziente.doctors)
+                    if num_doctors > 0:
+                        # Rimuovi tutte le relazioni paziente-medico
+                        for medico in list(paziente.doctors):
+                            paziente.doctors.remove(medico)
+                        relations_removed.append(f"{num_doctors} relazioni paziente-medico")
         
         # Qui puoi aggiungere altre relazioni se esistono (es: appuntamenti, cartelle cliniche, etc.)
         # Esempio:
