@@ -116,12 +116,14 @@ def get_glicemia_form():
                 # Data misurazione
                 dbc.Col([
                     dbc.Label("Data misurazione *", className="form-label"),
-                    dcc.DatePickerSingle(
+                    dbc.Input(
                         id="input-data-glicemia",
-                        date=date.today(),
-                        display_format='DD/MM/YYYY',
-                        style={"width": "100%"}
-                    )
+                        type="date",
+                        value=date.today().strftime('%Y-%m-%d'),
+                        max=date.today().strftime('%Y-%m-%d'),  # Non permette date future
+                        style={"cursor": "pointer"},
+                        className="form-control"
+            )
                 ], width=12, md=6)
             ], className="mb-3"),
             

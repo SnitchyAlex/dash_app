@@ -41,11 +41,11 @@ def register_patient_callbacks(app):
         Output('patient-content', 'children', allow_duplicate=True),
         Input('btn-salva-glicemia', 'n_clicks'),
         [State('input-valore-glicemia', 'value'),
-         State('input-data-glicemia', 'date'),
+         State('input-data-glicemia', 'value'),  # Cambiato da 'date' a 'value'
          State('input-ora-glicemia', 'value'),
          State('select-momento-pasto', 'value'),
          State('textarea-note-glicemia', 'value'),
-         State('radio-due-ore-pasto', 'value')],  # AGGIUNTO QUESTO STATE
+         State('radio-due-ore-pasto', 'value')],
         prevent_initial_call=True
     )
     @db_session
@@ -56,9 +56,24 @@ def register_patient_callbacks(app):
         
         # Validazione campi obbligatori
         if not valore or not data_misurazione or not ora or not momento_pasto:
-            return get_error_message("Per favore compila tutti i campi obbligatori!")
+            return get_error_message("Per favore compila tutti i campi obbligatori e inserisci un valore glicemico valido!")
         
-        # NUOVA VALIDAZIONE - Controllo campo due ore per "dopo_pasto"
+        # NUOVA VALIDAZIONE - Controllo date valide
+        try:
+            data_inserita = datetime.strptime(data_misurazione, '%Y-%m-%d').date()
+            data_oggi = datetime.now().date()
+            data_minima = datetime(1900, 1, 1).date()
+            
+            if data_inserita > data_oggi:
+                return get_error_message("La data di misurazione non può essere nel futuro!")
+            
+            if data_inserita < data_minima:
+                return get_error_message("La data di misurazione non può essere precedente al 1900!")
+                
+        except ValueError:
+            return get_error_message("Formato data non valido!")
+        
+        # VALIDAZIONE - Controllo campo due ore per "dopo_pasto"
         if momento_pasto == 'dopo_pasto' and due_ore_pasto is None:
             return get_error_message("Per favore specifica se sono passate almeno due ore dal pasto!")
         
@@ -70,7 +85,7 @@ def register_patient_callbacks(app):
             
             # Combina data e ora
             data_ora = datetime.combine(
-                datetime.strptime(data_misurazione, '%Y-%m-%d').date(),
+                data_inserita,
                 datetime.strptime(ora, '%H:%M').time()
             )
             
@@ -84,7 +99,7 @@ def register_patient_callbacks(app):
                 data_ora=data_ora,
                 momento_pasto=momento_pasto,
                 note=note if note else '',
-                due_ore_pasto=campo_due_ore  # AGGIUNTO QUESTO CAMPO
+                due_ore_pasto=campo_due_ore
             )
             commit()
             
@@ -114,5 +129,5 @@ def register_patient_callbacks(app):
     def cancel_form(n_clicks):
         """Nasconde il form quando si clicca annulla"""
         if n_clicks:
-            return html.Div()  # Div vuoto invece di stringa vuota
+            return html.Div()
         return dash.no_update
