@@ -60,3 +60,38 @@ def get_welcome_page():
         ], justify="center", className="min-vh-100 align-items-center")
     ])
 ])
+def get_register_layout():
+    """Returns the register page layout with simple message"""
+    return dbc.Container([
+        html.Img(
+            src="/assets/health.png",
+            style={
+                "position": "fixed",
+                "top": "20px",
+                "right": "20px",
+                "width": "150px",
+                "height": "auto",
+                "z-index": "1000"
+            }
+        ),
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H2('Registrazione', className='gradient-title text-center mb-4'),
+                        html.P('La funzionalità di registrazione non è disponibile. '
+                              'Contatta gli amministratori per ottenere le credenziali di accesso.',
+                              className='text-center mb-4'),
+                        dbc.Button(
+                            'Torna alla Home', 
+                            id='back-to-home-button', 
+                            color='primary', 
+                            className='w-100', 
+                            size='lg',
+                            href='/'
+                        )
+                    ])
+                ], className="shadow")
+            ], width=6)
+        ], justify="center", className="min-vh-100 align-items-center")
+    ])

@@ -11,3 +11,4 @@ class Paziente(User):
     codice_fiscale = Optional(str)
     # Relazione many-to-many con i medici
     doctors = Set("Medico", reverse="patients")
+    rilevazione = Set("Glicemia", reverse="paziente")

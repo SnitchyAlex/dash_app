@@ -15,19 +15,39 @@ A web application built with Dash and following the Model-View-Controller (MVC) 
 ## Project Structure
 
 dash_app/
-│
+|
+│──assets/
+│   |__ add.png
+|   ├── admin.png     
+│   |── bin.png      
+|   |── doctor.png
+|   ├── health.png
+│   |__ home.png
+|   ├── login.png    
+│   |── patient.png      
+|   |── register.png
+|   ├── sfondo.gif      # Sfondo animato bubbles
+|   |── style.css       # File css per lo stile generale
+|   |── wave.gif
+
+|
+├── data/
+|   |__dash_app.sqlite  # file.sqlite (database)
+|
 ├── model/              # Model (DB e dati)
 │   |__ __init__.py
 |   ├── database.py     # Config SQLite
 │   |── medico.py       # Classi/tabelle DB
+|   |── paziente.py
 |   ├── user.py 
 │
-├── views/              # View (UI)
-│   ├── layout.py       # Layout Dash
-│   └── components/     # Componenti riutilizzabili
+├── view/              # View (UI)
+│   ├── layout.py      # Layout dash
+|   |── auth.py       
+│   └── admin.oy
 │
 ├── controller/         # Controller (logica)
-│   ├── callbacks.py    # Callback Dash
+│   ├── admin.py    
 │   └── auth.py         # Autenticazione (Flask-Login)
 │
 ├── app.py              # App principale (Flask + Dash)
