@@ -64,27 +64,73 @@ def get_patient_dashboard(username):
                         ])
                     ]),
                     dbc.CardBody([
-                        html.P("Benvenuto nella tua area personale. Qui puoi registrare i tuoi dati sanitari.", 
+                        html.P("Benvenuto nella tua area personale. Qui puoi gestire i tuoi dati sanitari.", 
                                className="card-text mb-4"),
                         
-                        # Pulsante Registra Glicemia
-                        dbc.Button(
-                            [
-                                html.Img(src="/assets/glicemia.png", 
-                                       style={"width": "40px", "height": "40px", "margin-right": "10px"}),
-                                "Registra Glicemia"
-                            ],
-                            id="btn-registra-glicemia",
-                            className="btn-primary w-100 mb-3",
-                            size="lg"
-                        ),
+                        # Prima riga di bottoni
+                        dbc.Row([
+                            dbc.Col([
+                                dbc.Button(
+                                    [
+                                        html.Img(src="/assets/glicemia.png", 
+                                               style={"width": "35px", "height": "35px", "margin-right": "8px"}),
+                                        "Registra Glicemia"
+                                    ],
+                                    id="btn-registra-glicemia",
+                                    className="btn-primary w-100",
+                                    size="lg"
+                                )
+                            ], width=12, md=6, className="mb-3"),
+                            
+                            dbc.Col([
+                                dbc.Button(
+                                    [
+                                        html.Img(src="/assets/grafico.png", 
+                                               style={"width": "35px", "height": "35px", "margin-right": "8px"}),
+                                        "Andamento Glicemico"
+                                    ],
+                                    id="btn-andamento-glicemico",
+                                    className="btn-success w-100",
+                                    size="lg"
+                                )
+                            ], width=12, md=6, className="mb-3")
+                        ]),
+                        
+                        # Seconda riga di bottoni
+                        dbc.Row([
+                            dbc.Col([
+                                dbc.Button(
+                                    [
+                                        html.Img(src="/assets/dati.png", 
+                                               style={"width": "35px", "height": "35px", "margin-right": "8px"}),
+                                        "I Miei Dati"
+                                    ],
+                                    id="btn-miei-dati",
+                                    className="btn-success w-100",
+                                    size="lg"
+                                )
+                            ], width=12, md=6, className="mb-3"),
+                            
+                            dbc.Col([
+                                dbc.Button(
+                                    [
+                                        html.Img(src="/assets/farmaco.png", 
+                                               style={"width": "35px", "height": "35px", "margin-right": "8px"}),
+                                        "Nuova Assunzione"
+                                    ],
+                                    id="btn-nuova-assunzione",
+                                    className="btn-success w-100",
+                                    size="lg"
+                                )
+                            ], width=12, md=6, className="mb-3")
+                        ]),
                         
                         # Area per messaggi/feedback
                         html.Div(id="patient-feedback", className="mt-3")
                     ])
                 ]),
                 
-                # QUESTO È IL DIV MANCANTE - Area dove appare il form
+                # Area dove appare il form/contenuto
                 html.Div(id="patient-content", className="mt-3")
                 
             ], width=8)
@@ -216,6 +262,135 @@ def get_glicemia_form():
         ])
     ], className="mt-3")
 
+def get_miei_dati_view():
+    """Vista per visualizzare i dati personali del paziente"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("I Miei Dati", className="mb-0 text-success")
+        ]),
+        dbc.CardBody([
+            html.P("Qui potrai visualizzare e modificare i tuoi dati personali."),
+            # Placeholder per il contenuto dei dati personali
+            html.Div(id="dati-personali-content"),
+            html.Div([
+                dbc.Button(
+                    "Torna al Menu",
+                    id="btn-torna-menu-dati",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end mt-3")
+        ])
+    ], className="mt-3")
+
+def get_andamento_glicemico_view():
+    """Vista per visualizzare l'andamento glicemico"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Andamento Glicemico", className="mb-0 text-info")
+        ]),
+        dbc.CardBody([
+            html.P("Qui potrai visualizzare grafici e statistiche del tuo andamento glicemico."),
+            # Placeholder per grafici e statistiche
+            html.Div(id="grafici-glicemia-content"),
+            html.Div([
+                dbc.Button(
+                    "Torna al Menu",
+                    id="btn-torna-menu-grafici",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end mt-3")
+        ])
+    ], className="mt-3")
+
+def get_nuova_assunzione_form():
+    """Form per registrare una nuova assunzione di farmaci"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Registrazione Assunzione Farmaci", className="mb-0 text-primary")
+        ]),
+        dbc.CardBody([
+            # Nome farmaco
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Nome del farmaco *", className="form-label"),
+                    dbc.Input(
+                        id="input-nome-farmaco",
+                        type="text",
+                        placeholder="es. Metformina",
+                        className="form-control"
+                    )
+                ], width=12, md=6),
+                
+                # Dosaggio
+                dbc.Col([
+                    dbc.Label("Dosaggio *", className="form-label"),
+                    dbc.Input(
+                        id="input-dosaggio-farmaco",
+                        type="text",
+                        placeholder="es. 500mg, 1 compressa...",
+                        className="form-control"
+                    )
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            # Data e ora assunzione
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Data assunzione *", className="form-label"),
+                    dbc.Input(
+                        id="input-data-assunzione",
+                        type="date",
+                        value=date.today().strftime('%Y-%m-%d'),
+                        max=date.today().strftime('%Y-%m-%d'),
+                        className="form-control"
+                    )
+                ], width=12, md=6),
+                
+                dbc.Col([
+                    dbc.Label("Ora assunzione *", className="form-label"),
+                    dbc.Input(
+                        id="input-ora-assunzione",
+                        type="time",
+                        value=datetime.now().strftime("%H:%M"),
+                        className="form-control"
+                    )
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            # Note
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Note (opzionale)", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-note-assunzione",
+                        placeholder="Eventuali note sull'assunzione...",
+                        rows=3,
+                        className="form-control"
+                    )
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Pulsanti
+            html.Div([
+                dbc.Button(
+                    "Salva Assunzione",
+                    id="btn-salva-assunzione",
+                    color="success",
+                    size="lg",
+                    className="me-2"
+                ),
+                dbc.Button(
+                    "Annulla",
+                    id="btn-annulla-assunzione",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end")
+        ])
+    ], className="mt-3")
+
 def get_success_message(valore, data_ora, momento_pasto, due_ore_pasto=None):
     """Messaggio di successo dopo salvataggio"""
     # Costruisci il messaggio base
@@ -253,3 +428,17 @@ def get_momento_display(momento_pasto):
         "dopo_pasto": "Dopo il pasto"
     }
     return mapping.get(momento_pasto, momento_pasto)
+
+def get_assunzione_success_message(nome_farmaco, dosaggio, data_ora):
+    """Messaggio di successo dopo salvataggio assunzione"""
+    return dbc.Alert([
+        html.H5("Assunzione salvata con successo!", className="alert-heading"),
+        html.P(f"Farmaco: {nome_farmaco}"),
+        html.P(f"Dosaggio: {dosaggio}"),
+        html.P(f"Data e ora: {data_ora.strftime('%d/%m/%Y alle %H:%M')}"),
+        html.Hr(),
+        dbc.Button("Registra nuova assunzione", 
+                 id="btn-nuova-assunzione-bis", 
+                 color="primary", 
+                 size="sm")
+    ], color="success", dismissable=True)

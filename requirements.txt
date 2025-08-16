@@ -4,3 +4,4 @@ dash-bootstrap-components
 flask-login
 pony
 sqlalchemy
+pandas

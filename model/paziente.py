@@ -12,3 +12,4 @@ class Paziente(User):
     # Relazione many-to-many con i medici
     doctors = Set("Medico", reverse="patients")
     rilevazione = Set("Glicemia", reverse="paziente")
+    assunzione = Set("Assunzione", reverse="paziente")

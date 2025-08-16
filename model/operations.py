@@ -235,7 +235,8 @@ def delete_user_with_relations(username):
     from .user import User
     from .medico import Medico
     from .paziente import Paziente
-    from .glicemia import Glicemia  # AGGIUNTA: Import del modello Glicemia
+    from .glicemia import Glicemia
+    from .assunzione import Assunzione
     
     try:
         user = User.get(username=username)
@@ -263,14 +264,23 @@ def delete_user_with_relations(username):
         elif hasattr(user, 'codice_fiscale'):  # È un paziente
             paziente = Paziente.get(username=username)
             if paziente:
-                # AGGIUNTA: Elimina tutte le registrazioni glicemiche del paziente
-                if hasattr(paziente, 'glicemie'):
-                    glicemie_count = paziente.glicemie.count()
+                #Elimina tutte le registrazioni glicemiche del paziente
+                if hasattr(paziente, 'glicemia'):
+                    glicemie_count = paziente.glicemia.count()
                     if glicemie_count > 0:
                         # Elimina tutte le registrazioni glicemiche
-                        for glicemia in list(paziente.glicemie):
+                        for glicemia in list(paziente.glicemia):
                             glicemia.delete()
                         relations_removed.append(f"{glicemie_count} registrazioni glicemiche")
+
+                #Elimina tutte le registrazioni glicemiche del paziente
+                if hasattr(paziente, 'assunzione'):
+                    assunzioni_count = paziente.assunzione.count()
+                    if assunzioni_count > 0:
+                        # Elimina tutte le registrazioni glicemiche
+                        for assunzione in list(paziente.assunzione):
+                            assunzione.delete()
+                        relations_removed.append(f"{assunzioni_count} assunzioni")
                 
                 # Gestisci le relazioni paziente-medico
                 if hasattr(paziente, 'doctors'):
