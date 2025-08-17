@@ -125,6 +125,22 @@ def get_patient_dashboard(username):
                             ], width=12, md=6, className="mb-3")
                         ]),
                         
+                        # Terza riga di bottoni (centrata)
+                        dbc.Row([
+                            dbc.Col([
+                                dbc.Button(
+                                    [
+                                        html.Img(src="/assets/sintomi.png", 
+                                               style={"width": "35px", "height": "35px", "margin-right": "8px"}),
+                                        "Sintomi e Trattamenti"
+                                    ],
+                                    id="btn-sintomi-trattamenti",
+                                    className="btn-success w-100",
+                                    size="lg"
+                                )
+                            ], width=12, md=6, className="mb-3")
+                        ], justify="center"),
+                        
                         # Area per messaggi/feedback
                         html.Div(id="patient-feedback", className="mt-3")
                     ])
@@ -144,7 +160,7 @@ def get_glicemia_form():
             html.H5("Registrazione Glicemia", className="mb-0 text-primary")
         ]),
         dbc.CardBody([
-            # Valore glicemia
+            # Valore glicemia e data
             dbc.Row([
                 dbc.Col([
                     dbc.Label("Valore glicemia (mg/dL) *", className="form-label"),
@@ -159,17 +175,16 @@ def get_glicemia_form():
                     )
                 ], width=12, md=6),
                 
-                # Data misurazione
                 dbc.Col([
                     dbc.Label("Data misurazione *", className="form-label"),
                     dbc.Input(
                         id="input-data-glicemia",
                         type="date",
                         value=date.today().strftime('%Y-%m-%d'),
-                        max=date.today().strftime('%Y-%m-%d'),  # Non permette date future
+                        max=date.today().strftime('%Y-%m-%d'),
                         style={"cursor": "pointer"},
                         className="form-control"
-            )
+                    )
                 ], width=12, md=6)
             ], className="mb-3"),
             
@@ -200,7 +215,7 @@ def get_glicemia_form():
                 ], width=12, md=6)
             ], className="mb-3"),
             
-            # NUOVO CAMPO - Container per domanda due ore (nascosto di default)
+            # Campo condizionale per due ore dopo pasto
             html.Div(
                 id="due-ore-pasto-container",
                 children=[
@@ -227,7 +242,7 @@ def get_glicemia_form():
                         ], width=12)
                     ], className="mb-3")
                 ],
-                style={"display": "none"}  # Nascosto di default
+                style={"display": "none"}
             ),
             
             # Note
@@ -262,48 +277,6 @@ def get_glicemia_form():
         ])
     ], className="mt-3")
 
-def get_miei_dati_view():
-    """Vista per visualizzare i dati personali del paziente"""
-    return dbc.Card([
-        dbc.CardHeader([
-            html.H5("I Miei Dati", className="mb-0 text-success")
-        ]),
-        dbc.CardBody([
-            html.P("Qui potrai visualizzare e modificare i tuoi dati personali."),
-            # Placeholder per il contenuto dei dati personali
-            html.Div(id="dati-personali-content"),
-            html.Div([
-                dbc.Button(
-                    "Torna al Menu",
-                    id="btn-torna-menu-dati",
-                    color="secondary",
-                    size="lg"
-                )
-            ], className="d-grid gap-2 d-md-flex justify-content-md-end mt-3")
-        ])
-    ], className="mt-3")
-
-def get_andamento_glicemico_view():
-    """Vista per visualizzare l'andamento glicemico"""
-    return dbc.Card([
-        dbc.CardHeader([
-            html.H5("Andamento Glicemico", className="mb-0 text-info")
-        ]),
-        dbc.CardBody([
-            html.P("Qui potrai visualizzare grafici e statistiche del tuo andamento glicemico."),
-            # Placeholder per grafici e statistiche
-            html.Div(id="grafici-glicemia-content"),
-            html.Div([
-                dbc.Button(
-                    "Torna al Menu",
-                    id="btn-torna-menu-grafici",
-                    color="secondary",
-                    size="lg"
-                )
-            ], className="d-grid gap-2 d-md-flex justify-content-md-end mt-3")
-        ])
-    ], className="mt-3")
-
 def get_nuova_assunzione_form():
     """Form per registrare una nuova assunzione di farmaci"""
     return dbc.Card([
@@ -311,7 +284,7 @@ def get_nuova_assunzione_form():
             html.H5("Registrazione Assunzione Farmaci", className="mb-0 text-primary")
         ]),
         dbc.CardBody([
-            # Nome farmaco
+            # Nome farmaco e dosaggio
             dbc.Row([
                 dbc.Col([
                     dbc.Label("Nome del farmaco *", className="form-label"),
@@ -323,7 +296,6 @@ def get_nuova_assunzione_form():
                     )
                 ], width=12, md=6),
                 
-                # Dosaggio
                 dbc.Col([
                     dbc.Label("Dosaggio *", className="form-label"),
                     dbc.Input(
@@ -391,9 +363,163 @@ def get_nuova_assunzione_form():
         ])
     ], className="mt-3")
 
+def get_sintomi_trattamenti_form():
+    """Form per registrare sintomi, patologie e trattamenti"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Registrazione Sintomi e Trattamenti", className="mb-0 text-primary")
+        ]),
+        dbc.CardBody([
+            # Tipo e descrizione
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Tipo *", className="form-label"),
+                    dbc.Select(
+                        id="select-tipo-sintomo",
+                        options=[
+                            {"label": "Sintomo", "value": "sintomo"},
+                            {"label": "Patologia", "value": "patologia"},
+                            {"label": "Trattamento", "value": "trattamento"}
+                        ],
+                        placeholder="Seleziona il tipo...",
+                        className="form-control"
+                    )
+                ], width=12, md=4),
+                
+                dbc.Col([
+                    dbc.Label("Descrizione *", className="form-label"),
+                    dbc.Input(
+                        id="input-descrizione-sintomo",
+                        type="text",
+                        placeholder="es. Mal di testa, Ipertensione, Fisioterapia...",
+                        className="form-control"
+                    )
+                ], width=12, md=8)
+            ], className="mb-3"),
+            
+            # Data inizio e fine
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Data inizio *", className="form-label"),
+                    dbc.Input(
+                        id="input-data-inizio-sintomo",
+                        type="date",
+                        value=date.today().strftime('%Y-%m-%d'),
+                        max=date.today().strftime('%Y-%m-%d'),
+                        className="form-control"
+                    )
+                ], width=12, md=6),
+                
+                dbc.Col([
+                    dbc.Label("Data fine (se applicabile)", className="form-label"),
+                    dbc.Input(
+                        id="input-data-fine-sintomo",
+                        type="date",
+                        max=date.today().strftime('%Y-%m-%d'),
+                        className="form-control"
+                    ),
+                    dbc.FormText("Lascia vuoto se ancora in corso", className="text-muted")
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            # Campo condizionale per frequenza (solo per sintomi)
+            html.Div(
+                id="campi-sintomi-container",
+                children=[
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Label("Frequenza", className="form-label text-info"),
+                            dbc.Select(
+                                id="select-frequenza-sintomo",
+                                options=[
+                                    {"label": "Occasionale", "value": "occasionale"},
+                                    {"label": "Frequente", "value": "frequente"},
+                                    {"label": "Continuo", "value": "continuo"}
+                                ],
+                                placeholder="Seleziona frequenza...",
+                                className="form-control"
+                            )
+                        ], width=12, md=6)
+                    ], className="mb-3")
+                ],
+                style={"display": "none"}
+            ),
+            
+            # Note
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Note (opzionale)", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-note-sintomo",
+                        placeholder="Eventuali note aggiuntive...",
+                        rows=3,
+                        className="form-control"
+                    )
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Pulsanti
+            html.Div([
+                dbc.Button(
+                    "Salva Registrazione",
+                    id="btn-salva-sintomo",
+                    color="success",
+                    size="lg",
+                    className="me-2"
+                ),
+                dbc.Button(
+                    "Annulla",
+                    id="btn-annulla-sintomo",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end")
+        ])
+    ], className="mt-3")
+
+
+def get_miei_dati_view():
+    """Vista per visualizzare i dati personali del paziente"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("I Miei Dati", className="mb-0 text-success")
+        ]),
+        dbc.CardBody([
+            html.P("Qui potrai visualizzare e modificare i tuoi dati personali."),
+            html.Div(id="dati-personali-content"),
+            html.Div([
+                dbc.Button(
+                    "Torna al Menu",
+                    id="btn-torna-menu-dati",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end mt-3")
+        ])
+    ], className="mt-3")
+
+def get_andamento_glicemico_view():
+    """Vista per visualizzare l'andamento glicemico"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Andamento Glicemico", className="mb-0 text-info")
+        ]),
+        dbc.CardBody([
+            html.P("Qui potrai visualizzare grafici e statistiche del tuo andamento glicemico."),
+            html.Div(id="grafici-glicemia-content"),
+            html.Div([
+                dbc.Button(
+                    "Torna al Menu",
+                    id="btn-torna-menu-grafici",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end mt-3")
+        ])
+    ], className="mt-3")
+
 def get_success_message(valore, data_ora, momento_pasto, due_ore_pasto=None):
-    """Messaggio di successo dopo salvataggio"""
-    # Costruisci il messaggio base
+    """Messaggio di successo dopo salvataggio glicemia"""
     children = [
         html.H5("Misurazione salvata con successo!", className="alert-heading"),
         html.P(f"Glicemia: {valore} mg/dL"),
@@ -401,7 +527,6 @@ def get_success_message(valore, data_ora, momento_pasto, due_ore_pasto=None):
         html.P(f"Momento: {get_momento_display(momento_pasto)}")
     ]
     
-    # Aggiungi info sulle due ore se presente
     if momento_pasto == "dopo_pasto" and due_ore_pasto is not None:
         due_ore_text = "Sì" if due_ore_pasto else "No"
         children.append(html.P(f"Due ore dopo il pasto: {due_ore_text}"))
@@ -416,19 +541,6 @@ def get_success_message(valore, data_ora, momento_pasto, due_ore_pasto=None):
     
     return dbc.Alert(children, color="success", dismissable=True)
 
-def get_error_message(message):
-    """Messaggio di errore"""
-    return dbc.Alert(message, color="danger", dismissable=True)
-
-def get_momento_display(momento_pasto):
-    """Converte il codice momento in testo leggibile"""
-    mapping = {
-        "digiuno": "A digiuno",
-        "prima_pasto": "Prima del pasto",
-        "dopo_pasto": "Dopo il pasto"
-    }
-    return mapping.get(momento_pasto, momento_pasto)
-
 def get_assunzione_success_message(nome_farmaco, dosaggio, data_ora):
     """Messaggio di successo dopo salvataggio assunzione"""
     return dbc.Alert([
@@ -442,3 +554,50 @@ def get_assunzione_success_message(nome_farmaco, dosaggio, data_ora):
                  color="primary", 
                  size="sm")
     ], color="success", dismissable=True)
+
+def get_sintomi_success_message(tipo, descrizione, data_inizio, data_fine=None):
+    """Messaggio di successo dopo salvataggio sintomo/trattamento"""
+    children = [
+        html.H5("Registrazione salvata con successo!", className="alert-heading"),
+        html.P(f"Tipo: {get_tipo_display(tipo)}"),
+        html.P(f"Descrizione: {descrizione}"),
+        html.P(f"Data inizio: {data_inizio.strftime('%d/%m/%Y')}")
+    ]
+    
+    if data_fine:
+        children.append(html.P(f"Data fine: {data_fine.strftime('%d/%m/%Y')}"))
+    else:
+        children.append(html.P("Stato: In corso"))
+    
+    children.extend([
+        html.Hr(),
+        dbc.Button("Registra nuovo elemento", 
+                 id="btn-nuovo-sintomo", 
+                 color="primary", 
+                 size="sm")
+    ])
+    
+    return dbc.Alert(children, color="success", dismissable=True)
+
+def get_error_message(message):
+    """Messaggio di errore generico"""
+    return dbc.Alert(message, color="danger", dismissable=True)
+
+
+def get_momento_display(momento_pasto):
+    """Converte il codice momento in testo leggibile"""
+    mapping = {
+        "digiuno": "A digiuno",
+        "prima_pasto": "Prima del pasto",
+        "dopo_pasto": "Dopo il pasto"
+    }
+    return mapping.get(momento_pasto, momento_pasto)
+
+def get_tipo_display(tipo):
+    """Converte il tipo in testo leggibile"""
+    mapping = {
+        "sintomo": "Sintomo",
+        "patologia": "Patologia", 
+        "trattamento": "Trattamento"
+    }
+    return mapping.get(tipo, tipo)

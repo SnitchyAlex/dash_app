@@ -9,20 +9,23 @@ from pony.orm import db_session, commit
 from model.glicemia import Glicemia
 from model.assunzione import Assunzione
 from model.paziente import Paziente
+from model.sintomi import Sintomi
 from view.patient import (
     get_glicemia_form, 
     get_success_message, 
     get_error_message,
     get_nuova_assunzione_form, 
-    get_assunzione_success_message,  # IMPORTA DAL VIEW
+    get_assunzione_success_message,
     get_miei_dati_view, 
-    get_andamento_glicemico_view
+    get_andamento_glicemico_view,
+    get_sintomi_trattamenti_form,
+    get_sintomi_success_message
 )
+
 
 def register_patient_callbacks(app):
     """Registra tutti i callback per i pazienti"""
     
-    # ==================== CALLBACK ESISTENTI PER GLICEMIA ====================
     @app.callback(
         Output('patient-content', 'children'),
         Input('btn-registra-glicemia', 'n_clicks'),
@@ -71,10 +74,10 @@ def register_patient_callbacks(app):
             data_minima = datetime(1900, 1, 1).date()
             
             if data_inserita > data_oggi:
-                return get_error_message("La data di misurazione non puÃ² essere nel futuro!")
+                return get_error_message("La data di misurazione non può essere nel futuro!")
             
             if data_inserita < data_minima:
-                return get_error_message("La data di misurazione non puÃ² essere precedente al 1900!")
+                return get_error_message("La data di misurazione non può essere precedente al 1900!")
                 
         except ValueError:
             return get_error_message("Formato data non valido!")
@@ -211,7 +214,6 @@ def register_patient_callbacks(app):
             )
             commit()
             
-            # USA LA FUNZIONE IMPORTATA DAL VIEW
             return get_assunzione_success_message(nome_farmaco, dosaggio, data_ora)
             
         except Exception as e:
@@ -241,6 +243,131 @@ def register_patient_callbacks(app):
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-sintomi-trattamenti', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def show_sintomi_form(n_clicks):
+        """Mostra il form per registrare sintomi e trattamenti"""
+        if n_clicks:
+            return get_sintomi_trattamenti_form()
+        return dash.no_update
+
+    @app.callback(
+        Output('campi-sintomi-container', 'style'),
+        Input('select-tipo-sintomo', 'value')
+    )
+    def toggle_campi_sintomi(tipo_sintomo):
+        """Mostra/nasconde i campi intensità e frequenza per i sintomi"""
+        if tipo_sintomo == 'sintomo':
+            return {'display': 'block'}
+        else:
+            return {'display': 'none'}
+
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-salva-sintomo', 'n_clicks'),
+        [State('select-tipo-sintomo', 'value'),
+         State('input-descrizione-sintomo', 'value'),
+         State('input-data-inizio-sintomo', 'value'),
+         State('input-data-fine-sintomo', 'value'),
+         State('select-frequenza-sintomo', 'value'),
+         State('textarea-note-sintomo', 'value')],
+        prevent_initial_call=True
+    )
+    @db_session
+    def save_sintomo(n_clicks, tipo, descrizione, data_inizio, data_fine, frequenza, note):
+        """Salva il sintomo/patologia/trattamento nel database"""
+        if not n_clicks:
+            return dash.no_update
+        
+        # Validazione campi obbligatori
+        if not tipo or not descrizione or not data_inizio:
+            return get_error_message("Per favore compila tutti i campi obbligatori!")
+        
+        if tipo == 'sintomo' and not frequenza:
+            return get_error_message("Per favore seleziona la frequenza del sintomo!")
+        
+        # Validazione lunghezza descrizione
+        if len(descrizione.strip()) < 2:
+            return get_error_message("La descrizione deve essere di almeno 2 caratteri!")
+        
+        # Validazione date
+        try:
+            data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d').date()
+            data_oggi = datetime.now().date()
+            data_minima = datetime(1900, 1, 1).date()
+            
+            if data_inizio_obj > data_oggi:
+                return get_error_message("La data di inizio non può essere nel futuro!")
+            
+            if data_inizio_obj < data_minima:
+                return get_error_message("La data di inizio non può essere precedente al 1900!")
+                
+        except ValueError:
+            return get_error_message("Formato data inizio non valido!")
+        
+        # Validazione data fine se presente
+        data_fine_obj = None
+        if data_fine and data_fine.strip():
+            try:
+                data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d').date()
+                
+                if data_fine_obj > data_oggi:
+                    return get_error_message("La data di fine non può essere nel futuro!")
+                
+                if data_fine_obj < data_inizio_obj:
+                    return get_error_message("La data di fine non può essere precedente alla data di inizio!")
+                    
+            except ValueError:
+                return get_error_message("Formato data fine non valido!")
+        
+        try:
+            # Trova il paziente corrente
+            paziente = Paziente.get(username=current_user.username)
+            if not paziente:
+                return get_error_message("Errore: paziente non trovato!")
+            
+            # Crea e salva il sintomo/patologia/trattamento
+            sintomo = Sintomi(
+                paziente=paziente,
+                tipo=tipo,
+                descrizione=descrizione.strip(),
+                data_inizio=data_inizio_obj,
+                data_fine=data_fine_obj,
+                frequenza=frequenza if tipo == 'sintomo' else '',
+                note=note.strip() if note else ''
+            )
+            commit()
+            
+            return get_sintomi_success_message(tipo, descrizione, data_inizio_obj, data_fine_obj)
+            
+        except Exception as e:
+            return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-nuovo-sintomo', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def show_new_sintomo_form(n_clicks):
+        """Mostra un nuovo form sintomi dopo aver salvato"""
+        if n_clicks:
+            return get_sintomi_trattamenti_form()
+        return dash.no_update
+
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-annulla-sintomo', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def cancel_sintomo_form(n_clicks):
+        """Nasconde il form sintomi quando si clicca annulla"""
+        if n_clicks:
+            return html.Div()
+        return dash.no_update
+
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
         Input('btn-miei-dati', 'n_clicks'),
         prevent_initial_call=True
     )
@@ -248,27 +375,4 @@ def register_patient_callbacks(app):
         """Mostra la vista dei dati personali"""
         if n_clicks:
             return get_miei_dati_view()
-        return dash.no_update
-
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
-        Input('btn-andamento-glicemico', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def show_andamento_glicemico(n_clicks):
-        """Mostra la vista dell'andamento glicemico"""
-        if n_clicks:
-            return get_andamento_glicemico_view()
-        return dash.no_update
-
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
-        [Input('btn-torna-menu-dati', 'n_clicks'),
-         Input('btn-torna-menu-grafici', 'n_clicks')],
-        prevent_initial_call=True
-    )
-    def torna_al_menu(n_clicks_dati, n_clicks_grafici):
-        """Torna al menu principale nascondendo il contenuto"""
-        if n_clicks_dati or n_clicks_grafici:
-            return html.Div()
         return dash.no_update

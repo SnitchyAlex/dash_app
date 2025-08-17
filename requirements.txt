@@ -5,3 +5,4 @@ flask-login
 pony
 sqlalchemy
 pandas
+plotly

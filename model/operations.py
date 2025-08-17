@@ -235,9 +235,6 @@ def delete_user_with_relations(username):
     from .user import User
     from .medico import Medico
     from .paziente import Paziente
-    from .glicemia import Glicemia
-    from .assunzione import Assunzione
-    
     try:
         user = User.get(username=username)
         if not user:
@@ -265,12 +262,12 @@ def delete_user_with_relations(username):
             paziente = Paziente.get(username=username)
             if paziente:
                 #Elimina tutte le registrazioni glicemiche del paziente
-                if hasattr(paziente, 'glicemia'):
-                    glicemie_count = paziente.glicemia.count()
+                if hasattr(paziente, 'rilevazione'):
+                    glicemie_count = paziente.rilevazione.count()
                     if glicemie_count > 0:
                         # Elimina tutte le registrazioni glicemiche
-                        for glicemia in list(paziente.glicemia):
-                            glicemia.delete()
+                        for rilevazione in list(paziente.rilevazione):
+                            rilevazione.delete()
                         relations_removed.append(f"{glicemie_count} registrazioni glicemiche")
 
                 #Elimina tutte le registrazioni glicemiche del paziente
@@ -281,6 +278,14 @@ def delete_user_with_relations(username):
                         for assunzione in list(paziente.assunzione):
                             assunzione.delete()
                         relations_removed.append(f"{assunzioni_count} assunzioni")
+
+                if hasattr(paziente, 'sintomi'):
+                    sintomi_count = paziente.sintomi.count()
+                    if sintomi_count > 0:
+                        # Elimina tutte le registrazioni glicemiche
+                        for sintomi in list(paziente.sintomi):
+                            sintomi.delete()
+                        relations_removed.append(f"{sintomi_count} sintomi")
                 
                 # Gestisci le relazioni paziente-medico
                 if hasattr(paziente, 'doctors'):
