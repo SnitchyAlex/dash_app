@@ -172,9 +172,9 @@ def get_create_user_form():
                         id="new-role",
                         options=[
                             {"label": "Seleziona ruolo...", "value": ""},
-                            {"label": "👨‍⚕️ Medico", "value": "medico"},
+                            {"label": "👨🏻‍⚕️ Medico", "value": "medico"},
                             {"label": "👤 Paziente", "value": "paziente"},
-                            {"label": "👥 Utente", "value": "user"}
+                            {"label": "👑 Nuovo admin", "value": "user"}
                         ],
                         value=""
                     )

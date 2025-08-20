@@ -12,6 +12,7 @@ if db_path is not None:
     from .glicemia import Glicemia
     from .assunzione import Assunzione
     from .sintomi import Sintomi
+    from .terapia import Terapia
 
     # Debug: stampa gli attributi delle entità
     print("=== Debug Entity Attributes ===")
@@ -48,7 +49,7 @@ from .operations import (
 )
 
 __all__ = [
-    'db', 'User', 'Paziente', 'Medico', 'Glicemia', 'Assunzione', 'Sintomi',
+    'db', 'User', 'Paziente', 'Medico', 'Glicemia', 'Assunzione', 'Sintomi', 'Terapia',
     'assign_doctor_to_patient','get_user_by_username', 'add_user', 'validate_user', 'delete_user',
     'get_patient_doctors', 'get_doctor_patients', 'delete_user_with_relations', 'get_all_users_for_dropdown', 'check_user_relations'
 ]

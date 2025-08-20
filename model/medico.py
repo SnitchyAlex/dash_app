@@ -9,3 +9,4 @@ class Medico(User):
     
     # Relazione many-to-many con i pazienti
     patients = Set("Paziente", reverse="doctors")
+    terapies = Set("Terapia", reverse="medico")

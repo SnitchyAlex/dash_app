@@ -270,14 +270,22 @@ def delete_user_with_relations(username):
                             rilevazione.delete()
                         relations_removed.append(f"{glicemie_count} registrazioni glicemiche")
 
-                #Elimina tutte le registrazioni glicemiche del paziente
+                #Elimina tutte le assunzioni farmacologiche del paziente
                 if hasattr(paziente, 'assunzione'):
                     assunzioni_count = paziente.assunzione.count()
                     if assunzioni_count > 0:
-                        # Elimina tutte le registrazioni glicemiche
                         for assunzione in list(paziente.assunzione):
                             assunzione.delete()
                         relations_removed.append(f"{assunzioni_count} assunzioni")
+
+                # Solo se è un paziente elimina le terapie associate, altrimenti le teniamo per storico
+                if hasattr(paziente, 'terapies'):
+                    terapie_count = paziente.terapies.count()
+                    if terapie_count > 0:
+                        for terapia in list(paziente.terapies):
+                            terapia.delete()
+                        relations_removed.append(f"{terapie_count} terapie")
+
 
                 if hasattr(paziente, 'sintomi'):
                     sintomi_count = paziente.sintomi.count()
@@ -295,15 +303,7 @@ def delete_user_with_relations(username):
                         for medico in list(paziente.doctors):
                             paziente.doctors.remove(medico)
                         relations_removed.append(f"{num_doctors} relazioni paziente-medico")
-        
-        # Qui puoi aggiungere altre relazioni se esistono (es: appuntamenti, cartelle cliniche, etc.)
-        # Esempio:
-        # if hasattr(user, 'appointments'):
-        #     appointments_count = len(user.appointments)
-        #     if appointments_count > 0:
-        #         for appointment in list(user.appointments):
-        #             appointment.delete()
-        #         relations_removed.append(f"{appointments_count} appuntamenti")
+    
         
         # Forza il commit delle modifiche alle relazioni prima di eliminare l'utente
         commit()

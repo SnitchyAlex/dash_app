@@ -171,14 +171,14 @@ def register_admin_callbacks(app):
                     codice_fiscale=codice_fiscale or None
                 )
                 
-            else:  # utente base
+            else:  # nuovo admin
                 user = User(
                     username=username,
                     password_hash=generate_password_hash(password),
                     name=name,
                     surname=surname,
                     telefono= telefono if telefono else '',
-                    is_admin=False
+                    is_admin=True,
                 )
             commit()
             # Se tutto va bene, pulisci il form e mostra messaggio di successo

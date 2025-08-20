@@ -8,14 +8,15 @@ from pony.orm import db_session
 from dash import html, dcc
 from model.operations import validate_user, get_user_by_username
 from controller.admin import register_admin_callbacks
-from view.patient import get_patient_dashboard
 from controller.patient import register_patient_callbacks
+from controller.doctor import register_doctor_callbacks
 
 def register_auth_callbacks(app):
     """Register authentication-related callbacks"""
     
     register_patient_callbacks(app)
     register_admin_callbacks(app)
+    register_doctor_callbacks(app)
     # Callback for login form
     @app.callback(
         [Output('login-output', 'children'),
@@ -77,8 +78,8 @@ def register_auth_callbacks(app):
                     from view.patient import get_patient_dashboard
                     return get_patient_dashboard(current_user.username)
                 elif current_user.role == 'Medico':  # Per futuri sviluppi
-                    from view.layout import get_dashboard_layout
-                    return get_dashboard_layout(current_user.username)
+                    from view.doctor import get_doctor_dashboard
+                    return get_doctor_dashboard(current_user.username)
                 else:
                     from view.layout import get_dashboard_layout
                     return get_dashboard_layout(current_user.username)

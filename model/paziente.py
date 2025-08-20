@@ -14,3 +14,4 @@ class Paziente(User):
     rilevazione = Set("Glicemia", reverse="paziente")
     assunzione = Set("Assunzione", reverse="paziente")
     sintomi = Set("Sintomi", reverse="paziente")
+    terapies = Set("Terapia", reverse="paziente")
