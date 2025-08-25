@@ -345,7 +345,7 @@ def get_all_users_for_dropdown():
                 # Determina il tipo di utente per l'etichetta
                 user_type = ""
                 if hasattr(user, 'specializzazione'):  # È un medico
-                    user_type = "👨‍⚕️ Dr. "
+                    user_type = "👨🏻‍⚕️ Dr. "
                 elif hasattr(user, 'codice_fiscale'):  # È un paziente
                     user_type = "👤 "
                 else:

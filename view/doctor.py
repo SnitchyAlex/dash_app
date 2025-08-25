@@ -74,9 +74,9 @@ def get_doctor_dashboard(username):
                                     [
                                         html.Img(src="/assets/terapia.png", 
                                                style={"width": "35px", "height": "35px", "margin-right": "8px"}),
-                                        "Assegna Terapia"
+                                        "Gestisci Terapie"
                                     ],
-                                    id="btn-assegna-terapia",
+                                    id="btn-gestisci-terapie",
                                     className="btn-primary w-100",
                                     size="lg"
                                 )
@@ -101,11 +101,11 @@ def get_doctor_dashboard(username):
                             dbc.Col([
                                 dbc.Button(
                                     [
-                                        html.Img(src="/assets/report.png", 
+                                        html.Img(src="/assets/segui.png", 
                                                style={"width": "35px", "height": "35px", "margin-right": "8px"}),
-                                        "Report Pazienti"
+                                        "Segui un nuovo paziente"
                                     ],
-                                    id="btn-report-pazienti",
+                                    id="btn-segui-pazienti",
                                     className="btn-success w-100",
                                     size="lg"
                                 )
@@ -137,6 +137,70 @@ def get_doctor_dashboard(username):
         ], justify="center", className="mt-4")
     ], fluid=True, className="main-container")
 
+def get_terapie_menu():
+    """Menu delle opzioni per gestire le terapie"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.Div([
+                html.Img(src="/assets/terapia.png", 
+                       style={"width": "40px", "height": "40px", "margin-right": "10px"}),
+                html.H5("Gestione Terapie", className="mb-0 text-primary", style={"display": "inline-block"})
+            ])
+        ]),
+        dbc.CardBody([
+            html.P("Seleziona l'azione che desideri eseguire:", className="card-text mb-4"),
+            
+            # Bottoni del menu terapie
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button(
+                        "Assegna Nuova Terapia",
+                        id="btn-assegna-terapia",
+                        className="btn-primary w-100 mb-3",
+                        size="lg"
+                    ),
+                    html.Small("Assegna una nuova terapia farmacologica a un paziente", 
+                             className="text-muted d-block text-center")
+                ], width=12, className="mb-4")
+            ]),
+            
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button(
+                        "Modifica Terapia",
+                        id="btn-modifica-terapia",
+                        className="btn-success w-100 mb-3",
+                        size="lg"
+                    ),
+                    html.Small("Modifica una terapia esistente", 
+                             className="text-muted d-block text-center")
+                ], width=12, className="mb-4")
+            ]),
+            
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button(
+                        "Elimina Terapia",
+                        id="btn-elimina-terapia",
+                        className="btn-red w-100 mb-3",
+                        size="lg"
+                    ),
+                    html.Small("Rimuovi una terapia non più necessaria", 
+                             className="text-muted d-block text-center")
+                ], width=12, className="mb-4")
+            ]),
+            
+            # Bottone per tornare indietro
+            html.Hr(),
+            dbc.Button(
+                "← Torna al Menu Principale",
+                id="btn-torna-menu-principale",
+                color="secondary",
+                size="sm"
+            )
+        ])
+    ], className="mt-3")
+
 def get_assegna_terapia_form(pazienti):
     """Form per assegnare una terapia a un paziente"""
     # Prepara le opzioni per il dropdown pazienti
@@ -153,14 +217,21 @@ def get_assegna_terapia_form(pazienti):
             dbc.CardBody([
                 dbc.Alert([
                     html.H5("Nessun paziente trovato", className="alert-heading"),
-                    html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo.")
+                    html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
+                    html.Hr(),
+                    dbc.Button(
+                        "← Torna al Menu Terapie",
+                        id="btn-torna-menu-terapie",
+                        color="warning",
+                        size="sm"
+                    )
                 ], color="warning")
             ])
         ], className="mt-3")
     
     return dbc.Card([
         dbc.CardHeader([
-            html.H5("Assegnazione Terapia", className="mb-0 text-primary")
+            html.H5("Assegnazione Nuova Terapia", className="mb-0 text-primary")
         ]),
         dbc.CardBody([
             # Selezione paziente
@@ -292,8 +363,137 @@ def get_assegna_terapia_form(pazienti):
                     className="me-2"
                 ),
                 dbc.Button(
-                    "Annulla",
-                    id="btn-annulla-terapia",
+                    "← Torna al Menu Terapie",
+                    id="btn-torna-menu-terapie",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end")
+        ])
+    ], className="mt-3")
+
+def get_modifica_terapia_form(pazienti):
+    """Form per modificare una terapia esistente"""
+    # Prepara le opzioni per il dropdown pazienti
+    pazienti_options = [
+        {"label": f"{p.name} {p.surname} ({p.username})", "value": p.username} 
+        for p in pazienti
+    ]
+    
+    if not pazienti_options:
+        return dbc.Card([
+            dbc.CardHeader([
+                html.H5("Modifica Terapia", className="mb-0 text-primary")
+            ]),
+            dbc.CardBody([
+                dbc.Alert([
+                    html.H5("Nessun paziente trovato", className="alert-heading"),
+                    html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
+                    html.Hr(),
+                    dbc.Button(
+                        "← Torna al Menu Terapie",
+                        id="btn-torna-menu-terapie",
+                        color="warning",
+                        size="sm"
+                    )
+                ], color="warning")
+            ])
+        ], className="mt-3")
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Modifica Terapia Esistente", className="mb-0 text-primary")
+        ]),
+        dbc.CardBody([
+            # Prima step: selezione paziente per vedere le sue terapie
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Seleziona Paziente *", className="form-label"),
+                    dbc.Select(
+                        id="select-paziente-modifica",
+                        options=pazienti_options,
+                        placeholder="Seleziona il paziente...",
+                        className="form-control"
+                    ),
+                    dbc.FormText("Seleziona un paziente per visualizzare le sue terapie attive", className="text-muted")
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Area dove appariranno le terapie del paziente selezionato
+            html.Div(id="terapie-paziente-list", className="mt-3"),
+            
+            # Pulsanti
+            html.Div([
+                dbc.Button(
+                    "← Torna al Menu Terapie",
+                    id="btn-torna-menu-terapie",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end")
+        ])
+    ], className="mt-3")
+
+def get_elimina_terapia_form(pazienti):
+    """Form per eliminare una terapia esistente"""
+    # Prepara le opzioni per il dropdown pazienti
+    pazienti_options = [
+        {"label": f"{p.name} {p.surname} ({p.username})", "value": p.username} 
+        for p in pazienti
+    ]
+    
+    if not pazienti_options:
+        return dbc.Card([
+            dbc.CardHeader([
+                html.H5("Elimina Terapia", className="mb-0 text-primary")
+            ]),
+            dbc.CardBody([
+                dbc.Alert([
+                    html.H5("Nessun paziente trovato", className="alert-heading"),
+                    html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
+                    html.Hr(),
+                    dbc.Button(
+                        "← Torna al Menu Terapie",
+                        id="btn-torna-menu-terapie",
+                        color="danger",
+                        size="sm"
+                    )
+                ], color="warning")
+            ])
+        ], className="mt-3")
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Elimina Terapia", className="mb-0 text-primary")
+        ]),
+        dbc.CardBody([
+            dbc.Alert([
+                html.Strong("⚠️ Attenzione: "),
+                "L'eliminazione di una terapia è un'azione irreversibile. Assicurati di voler procedere."
+            ], color="warning", className="mb-4"),
+            
+            # Prima step: selezione paziente per vedere le sue terapie
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Seleziona Paziente *", className="form-label"),
+                    dbc.Select(
+                        id="select-paziente-elimina",
+                        options=pazienti_options,
+                        placeholder="Seleziona il paziente...",
+                        className="form-control"
+                    ),
+                    dbc.FormText("Seleziona un paziente per visualizzare le sue terapie attive", className="text-muted")
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Area dove appariranno le terapie del paziente selezionato
+            html.Div(id="terapie-paziente-elimina-list", className="mt-3"),
+            
+            # Pulsanti
+            html.Div([
+                dbc.Button(
+                    "← Torna al Menu Terapie",
+                    id="btn-torna-menu-terapie",
                     color="secondary",
                     size="lg"
                 )
@@ -319,10 +519,23 @@ def get_terapia_success_message(paziente_nome, nome_farmaco, dosaggio, assunzion
     
     children.extend([
         html.Hr(),
-        dbc.Button("Assegna nuova terapia", 
-                 id="btn-nuova-terapia", 
-                 color="primary", 
-                 size="sm")
+        # Layout con pulsanti separati per migliore spaziatura
+        dbc.Row([
+            dbc.Col([
+                dbc.Button("Assegna nuova terapia", 
+                         id="btn-nuova-terapia", 
+                         color="primary", 
+                         size="sm",
+                         className="w-100")
+            ], width=6),
+            dbc.Col([
+                dbc.Button("← Torna al Menu Terapie", 
+                         id="btn-torna-menu-terapie", 
+                         color="secondary", 
+                         size="lg",
+                         className="w-100")
+            ], width=6)
+        ], className="g-3")  # g-3 aggiunge spaziatura tra le colonne
     ])
     
     return dbc.Alert(children, color="success", dismissable=True)
@@ -342,3 +555,429 @@ def get_indicazioni_display(indicazioni):
         "secondo_necessita": "Secondo necessità"
     }
     return mapping.get(indicazioni, indicazioni)
+def get_terapie_list_for_edit(terapie, paziente):
+    """Lista delle terapie del paziente per la selezione in modifica"""
+    terapie_cards = []
+    
+    for terapia in terapie:
+        # Prepara le informazioni della terapia
+        data_inizio_str = terapia.data_inizio.strftime('%d/%m/%Y') if terapia.data_inizio else "Non specificata"
+        data_fine_str = terapia.data_fine.strftime('%d/%m/%Y') if terapia.data_fine else "Continuativa"
+        
+        # Info sul medico che ha modificato per ultimo
+        modificata_info = ""
+        if terapia.modificata:
+            modificata_info = f" (Modificata da: {terapia.modificata})"
+        
+        # Crea la chiave composita per identificare la terapia
+        # Usa il formato: medico_nome|paziente_username|nome_farmaco|data_inizio
+        composite_key = f"{terapia.medico_nome}|{terapia.paziente.username}|{terapia.nome_farmaco}|{terapia.data_inizio.strftime('%Y-%m-%d') if terapia.data_inizio else 'None'}"
+        
+        card = dbc.Card([
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        html.H6(f"{terapia.nome_farmaco}", className="card-title text-primary"),
+                        html.P([
+                            html.Strong("Dosaggio: "), terapia.dosaggio_per_assunzione, html.Br(),
+                            html.Strong("Assunzioni giornaliere: "), str(terapia.assunzioni_giornaliere), html.Br(),
+                            html.Strong("Dal: "), data_inizio_str, 
+                            html.Strong(" al: ") if terapia.data_fine else html.Strong(" - "), data_fine_str, html.Br(),
+                            html.Strong("Prescritto da: "), terapia.medico_nome, modificata_info
+                        ], className="card-text small"),
+                        
+                        # Mostra indicazioni se presenti
+                        html.P([
+                            html.Strong("Indicazioni: "), 
+                            terapia.indicazioni if terapia.indicazioni else "Nessuna indicazione specifica"
+                        ], className="card-text small text-muted") if terapia.indicazioni else html.Div(),
+                        
+                        # Mostra note se presenti
+                        html.P([
+                            html.Strong("Note: "), 
+                            terapia.note if terapia.note else "Nessuna nota"
+                        ], className="card-text small text-muted") if terapia.note else html.Div(),
+                        
+                    ], width=8),
+                    
+                    dbc.Col([
+                        dbc.Button(
+                            [
+                                html.I(className="fas fa-edit me-1"),
+                                "Modifica"
+                            ],
+                            id={'type': 'btn-modifica-terapia-specifica', 'index': composite_key},
+                            className="btn-modify-medical w-100",  # Usa la classe CSS personalizzata
+                            size="sm"
+                        )
+                    ], width=4, className="d-flex align-items-center")
+                ])
+            ])
+        ], className="mb-2", style={"border-left": "4px solid #28a745"})
+        
+        terapie_cards.append(card)
+    
+    return html.Div([
+        html.Hr(),
+        html.H6(f"Terapie di {paziente.name} {paziente.surname}:", className="text-primary mb-3"),
+        html.Div(terapie_cards)
+    ])
+
+def get_edit_terapia_form(terapia, pazienti):
+    """Form per modificare una terapia esistente con dati precompilati"""
+    # Prepara le opzioni per il dropdown pazienti
+    pazienti_options = [
+        {"label": f"{p.name} {p.surname} ({p.username})", "value": p.username} 
+        for p in pazienti
+    ]
+    
+    # Crea la chiave composita della terapia - STESSO FORMATO della lista
+    composite_key = f"{terapia.medico_nome}|{terapia.paziente.username}|{terapia.nome_farmaco}|{terapia.data_inizio.strftime('%Y-%m-%d') if terapia.data_inizio else 'None'}"
+    
+    # Determina quale indicazione è selezionata
+    selected_indicazione = None
+    indicazioni_custom_value = ""
+    
+    if terapia.indicazioni:
+        # Controlla se è una delle indicazioni predefinite
+        reverse_mapping = {
+            "Prima dei pasti": "prima_pasti",
+            "Dopo i pasti": "dopo_pasti", 
+            "Lontano dai pasti": "lontano_pasti",
+            "Al mattino": "mattino",
+            "Alla sera": "sera",
+            "Secondo necessità": "secondo_necessita"
+        }
+        
+        # Cerca se l'indicazione corrisponde a una predefinita
+        for display, value in reverse_mapping.items():
+            if terapia.indicazioni.startswith(display):
+                selected_indicazione = value
+                # Se ci sono indicazioni aggiuntive, mettile nel campo custom
+                resto = terapia.indicazioni.replace(display, "").strip()
+                if resto.startswith("."):
+                    resto = resto[1:].strip()
+                indicazioni_custom_value = resto
+                break
+        
+        # Se non è predefinita, metti tutto nel campo custom
+        if not selected_indicazione:
+            indicazioni_custom_value = terapia.indicazioni
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Modifica Terapia", className="mb-0 text-primary")
+        ]),
+        dbc.CardBody([
+            # Campo nascosto per la chiave composita della terapia
+            html.Div(id="hidden-terapia-key", children=composite_key, style={"display": "none"}),
+            
+            # Alert informativo
+            dbc.Alert([
+                html.Strong("Stai modificando: "),
+                f"{terapia.nome_farmaco} per {terapia.paziente.name} {terapia.paziente.surname}"
+            ], color="info", className="mb-4"),
+            
+            # Selezione paziente (preselezionato)
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Seleziona Paziente *", className="form-label"),
+                    dbc.Select(
+                        id="select-paziente-terapia-edit",
+                        options=pazienti_options,
+                        value=terapia.paziente.username,
+                        className="form-control"
+                    )
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Nome farmaco e dosaggio (precompilati)
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Nome del farmaco *", className="form-label"),
+                    dbc.Input(
+                        id="input-nome-farmaco-terapia-edit",
+                        type="text",
+                        value=terapia.nome_farmaco,
+                        placeholder="es. Metformina, Insulina...",
+                        className="form-control"
+                    )
+                ], width=12, md=6),
+                
+                dbc.Col([
+                    dbc.Label("Dosaggio per assunzione *", className="form-label"),
+                    dbc.Input(
+                        id="input-dosaggio-terapia-edit",
+                        type="text",
+                        value=terapia.dosaggio_per_assunzione,
+                        placeholder="es. 500mg, 1 compressa, 10 UI...",
+                        className="form-control"
+                    )
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            # Assunzioni giornaliere e indicazioni (precompilate)
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Numero di assunzioni giornaliere *", className="form-label"),
+                    dbc.Input(
+                        id="input-assunzioni-giornaliere-edit",
+                        type="number",
+                        min=1,
+                        max=10,
+                        step=1,
+                        value=terapia.assunzioni_giornaliere,
+                        className="form-control"
+                    )
+                ], width=12, md=6),
+                
+                dbc.Col([
+                    dbc.Label("Indicazioni", className="form-label"),
+                    dbc.Select(
+                        id="select-indicazioni-terapia-edit",
+                        options=[
+                            {"label": "Prima dei pasti", "value": "prima_pasti"},
+                            {"label": "Dopo i pasti", "value": "dopo_pasti"},
+                            {"label": "Lontano dai pasti", "value": "lontano_pasti"},
+                            {"label": "Al mattino", "value": "mattino"},
+                            {"label": "Alla sera", "value": "sera"},
+                            {"label": "Secondo necessità", "value": "secondo_necessita"}
+                        ],
+                        value=selected_indicazione,
+                        placeholder="Seleziona indicazioni...",
+                        className="form-control"
+                    )
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            # Date inizio e fine (precompilate)
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Data inizio terapia *", className="form-label"),
+                    dbc.Input(
+                        id="input-data-inizio-terapia-edit",
+                        type="date",
+                        value=terapia.data_inizio.strftime('%Y-%m-%d') if terapia.data_inizio else '',
+                        className="form-control"
+                    )
+                ], width=12, md=6),
+                
+                dbc.Col([
+                    dbc.Label("Data fine terapia (se applicabile)", className="form-label"),
+                    dbc.Input(
+                        id="input-data-fine-terapia-edit",
+                        type="date",
+                        value=terapia.data_fine.strftime('%Y-%m-%d') if terapia.data_fine else '',
+                        className="form-control"
+                    ),
+                    dbc.FormText("Lascia vuoto per terapia continuativa", className="text-muted")
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            # Indicazioni aggiuntive personalizzate (precompilate)
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Indicazioni aggiuntive", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-indicazioni-terapia-edit",
+                        placeholder="es. Assumere con abbondante acqua, non assumere se glicemia < 80 mg/dL...",
+                        value=indicazioni_custom_value,
+                        rows=3,
+                        className="form-control"
+                    )
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Note (precompilate)
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Note (opzionale)", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-note-terapia-edit",
+                        placeholder="Eventuali note aggiuntive per il paziente...",
+                        value=terapia.note if terapia.note else '',
+                        rows=2,
+                        className="form-control"
+                    )
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Pulsanti
+            html.Div([
+                dbc.Button(
+                    "Salva Modifiche",
+                    id="btn-salva-modifiche-terapia",
+                    color="success",
+                    size="lg",
+                    className="me-2"
+                ),
+                dbc.Button(
+                    "← Torna al Menu Terapie",
+                    id="btn-torna-menu-terapie",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end")
+        ])
+    ], className="mt-3")
+
+def get_terapia_modify_success_message(paziente_nome, nome_farmaco, dosaggio, assunzioni_giornaliere, data_inizio, data_fine=None):
+    """Messaggio di successo dopo modifica terapia"""
+    children = [
+        html.H5("Terapia modificata con successo!", className="alert-heading"),
+        html.P(f"Paziente: {paziente_nome}"),
+        html.P(f"Farmaco: {nome_farmaco}"),
+        html.P(f"Dosaggio: {dosaggio}"),
+        html.P(f"Assunzioni giornaliere: {assunzioni_giornaliere}"),
+        html.P(f"Data inizio: {data_inizio.strftime('%d/%m/%Y')}")
+    ]
+    
+    if data_fine:
+        children.append(html.P(f"Data fine: {data_fine.strftime('%d/%m/%Y')}"))
+    else:
+        children.append(html.P("Durata: Terapia continuativa"))
+    
+    children.extend([
+        html.Hr(),
+        # Layout con pulsanti separati per migliore spaziatura
+        dbc.Row([
+            dbc.Col([
+                dbc.Button("Modifica altra terapia", 
+                         id="btn-modifica-altra-terapia", 
+                         color="primary", 
+                         size="sm",
+                         className="w-100")
+            ], width=6),
+            dbc.Col([
+                dbc.Button("← Torna al Menu Terapie", 
+                         id="btn-torna-menu-terapie", 
+                         color="secondary", 
+                         size="lg",
+                         className="w-100")
+            ], width=6)
+        ], className="g-3")  # g-3 aggiunge spaziatura tra le colonne
+    ])
+    
+    return dbc.Alert(children, color="success", dismissable=True)
+
+# Aggiungi queste funzioni al file view/doctor.py
+
+def get_terapie_list_for_delete(terapie, paziente):
+    """Lista delle terapie del paziente per la selezione in eliminazione"""
+    terapie_cards = []
+    
+    for terapia in terapie:
+        # Prepara le informazioni della terapia
+        data_inizio_str = terapia.data_inizio.strftime('%d/%m/%Y') if terapia.data_inizio else "Non specificata"
+        data_fine_str = terapia.data_fine.strftime('%d/%m/%Y') if terapia.data_fine else "Continuativa"
+        
+        # Info sul medico che ha modificato per ultimo
+        modificata_info = ""
+        if terapia.modificata:
+            modificata_info = f" (Modificata da: {terapia.modificata})"
+        
+        # Crea la chiave composita per identificare la terapia (stesso formato delle altre funzioni)
+        composite_key = f"{terapia.medico_nome}|{terapia.paziente.username}|{terapia.nome_farmaco}|{terapia.data_inizio.strftime('%Y-%m-%d') if terapia.data_inizio else 'None'}"
+        
+        card = dbc.Card([
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        html.H6(f"{terapia.nome_farmaco}", className="card-title text-primary"),
+                        html.P([
+                            html.Strong("Dosaggio: "), terapia.dosaggio_per_assunzione, html.Br(),
+                            html.Strong("Assunzioni giornaliere: "), str(terapia.assunzioni_giornaliere), html.Br(),
+                            html.Strong("Dal: "), data_inizio_str, 
+                            html.Strong(" al: ") if terapia.data_fine else html.Strong(" - "), data_fine_str, html.Br(),
+                            html.Strong("Prescritto da: "), terapia.medico_nome, modificata_info
+                        ], className="card-text small"),
+                        
+                        # Mostra indicazioni se presenti
+                        html.P([
+                            html.Strong("Indicazioni: "), 
+                            terapia.indicazioni if terapia.indicazioni else "Nessuna indicazione specifica"
+                        ], className="card-text small text-muted") if terapia.indicazioni else html.Div(),
+                        
+                        # Mostra note se presenti
+                        html.P([
+                            html.Strong("Note: "), 
+                            terapia.note if terapia.note else "Nessuna nota"
+                        ], className="card-text small text-muted") if terapia.note else html.Div(),
+                        
+                    ], width=8),
+                    
+                    dbc.Col([
+                        dbc.Button(
+                            [
+                                html.I(className="fas fa-trash me-1"),
+                                "Elimina"
+                            ],
+                            id={'type': 'btn-elimina-terapia-specifica', 'index': composite_key},
+                            color="danger",
+                            size="sm",
+                            className="w-100"
+                        )
+                    ], width=4, className="d-flex align-items-center")
+                ])
+            ])
+        ], className="mb-2", style={"border-left": "4px solid #dc3545"})  # Bordo rosso per distinguere dall'eliminazione
+        
+        terapie_cards.append(card)
+    
+    return html.Div([
+        html.Hr(),
+        dbc.Alert([
+            html.I(className="fas fa-exclamation-triangle me-2"),
+            html.Strong("Attenzione: "),
+            "Stai per eliminare una terapia. Questa azione è irreversibile!"
+        ], color="warning", className="mb-3"),
+        html.H6(f"Terapie di {paziente.name} {paziente.surname}:", className="text-danger mb-3"),
+        html.P("Seleziona la terapia da eliminare:", className="text-muted mb-3"),
+        html.Div(terapie_cards)
+    ])
+
+def get_terapia_delete_success_message(paziente_nome, nome_farmaco, dosaggio):
+    """Messaggio di successo dopo eliminazione terapia"""
+    children = [
+        html.I(className="fas fa-check-circle fa-2x text-success mb-3"),
+        html.H5("Terapia eliminata con successo!", className="alert-heading"),
+        html.P(f"È stata eliminata la seguente terapia:"),
+        html.Ul([
+            html.Li(f"Paziente: {paziente_nome}"),
+            html.Li(f"Farmaco: {nome_farmaco}"),
+            html.Li(f"Dosaggio: {dosaggio}")
+        ]),
+        html.P("La terapia è stata rimossa definitivamente dal sistema.", className="text-muted"),
+        html.Hr(),
+        # Layout con pulsanti separati per migliore spaziatura
+        dbc.Row([
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-trash me-2"),
+                        "Elimina altra terapia"
+                    ], 
+                    id="btn-elimina-altra-terapia", 
+                    color="danger", 
+                    size="sm",
+                    className="w-100"
+                )
+            ], width=6),
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-arrow-left me-2"),
+                        "Torna al Menu Terapie"
+                    ], 
+                    id="btn-torna-menu-terapie", 
+                    color="secondary", 
+                    size="lg",
+                    className="w-100"
+                )
+            ], width=6)
+        ], className="g-3")  # g-3 aggiunge spaziatura tra le colonne
+    ]
+    
+    return dbc.Alert(children, color="success", dismissable=True)
+
+    

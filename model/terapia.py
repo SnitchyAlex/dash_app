@@ -14,7 +14,8 @@ class Terapia(db.Entity):
     nome_farmaco = Required(str)
     dosaggio_per_assunzione = Required(str)  # es. "500mg", "1 compressa"
     assunzioni_giornaliere = Required(int)  # numero di volte al giorno
-    medico_nome = Required(str) 
+    medico_nome = Required(str)
+    modificata = Optional(str)   # Nome dell'ultimo medico che ha modificato la terapia
     
     # Indicazioni e note
     indicazioni = Optional(str)  # es. "dopo i pasti", "lontano dai pasti"
