@@ -114,9 +114,9 @@ def get_doctor_dashboard(username):
                             dbc.Col([
                                 dbc.Button(
                                     [
-                                        html.Img(src="/assets/statistiche.png", 
+                                        html.Img(src="/assets/grafico.png", 
                                                style={"width": "35px", "height": "35px", "margin-right": "8px"}),
-                                        "Statistiche"
+                                        "Andamenti glicemici"
                                     ],
                                     id="btn-statistiche",
                                     className="btn-success w-100",
