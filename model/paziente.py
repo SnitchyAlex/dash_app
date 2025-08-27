@@ -9,6 +9,13 @@ class Paziente(User):
     birth_date = Optional(datetime)
     eta = Optional(int)
     codice_fiscale = Optional(str)
+
+    # Dati clinici
+    fattori_rischio = Optional(str)
+    pregresse_patologie = Optional(str) 
+    comorbidita = Optional(str)
+    info_aggiornate = Optional(str)
+
     # Relazione many-to-many con i medici
     doctors = Set("Medico", reverse="patients")
     rilevazione = Set("Glicemia", reverse="paziente")

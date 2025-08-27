@@ -730,4 +730,226 @@ def register_doctor_callbacks(app):
                 pazienti = list(Paziente.select())
                 return get_elimina_terapia_form(pazienti)
         return dash.no_update
+    
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-dati-paziente', 'n_clicks'),
+    prevent_initial_call=True
+    )
+    @db_session
+    def show_dati_pazienti_menu(n_clicks):
+        """Mostra il menu per selezionare il paziente di cui visualizzare i dati"""
+        if n_clicks:
+            medico = Medico.get(username=current_user.username)
+        
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            # Ottieni solo i pazienti che il medico segue
+            pazienti_seguiti = list(medico.patients)
+        
+            # Importa la funzione
+            from view.doctor import get_dati_pazienti_menu
+            return get_dati_pazienti_menu(pazienti_seguiti)
+        return dash.no_update
+    
+    # Callback per visualizzare i dati del paziente selezionato
+    @app.callback(
+        Output('dati-paziente-display', 'children'),
+        Input('select-paziente-dati', 'value'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def show_patient_data(patient_username):
+        """Visualizza i dati clinici del paziente selezionato"""
+        if not patient_username:
+            return dash.no_update
+    
+        try:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            paziente = Paziente.get(username=patient_username)
+            if not paziente:
+                return get_error_message("Paziente non trovato!")
+        
+            # Verifica che il medico segua questo paziente
+            if medico not in paziente.doctors:
+                return get_error_message(f"Accesso negato: Non sei autorizzato a visualizzare i dati del paziente {paziente.name} {paziente.surname}.")
+        
+            from view.doctor import get_patient_data_display
+            return get_patient_data_display(paziente)
+        
+        except Exception as e:
+            return get_error_message(f"Errore: {str(e)}")
+
+    # Callback per mostrare il form di modifica dati paziente
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-modifica-dati-paziente', 'n_clicks'),
+        State('select-paziente-dati', 'value'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def show_edit_patient_data_form(n_clicks, patient_username):
+        """Mostra il form per modificare i dati clinici del paziente"""
+        if not n_clicks or not patient_username:
+            return dash.no_update
+    
+        try:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            paziente = Paziente.get(username=patient_username)
+            if not paziente:
+                return get_error_message("Paziente non trovato!")
+        
+            # Verifica che il medico segua questo paziente
+            if medico not in paziente.doctors:
+                return get_error_message(f"Accesso negato: Non sei autorizzato a modificare i dati del paziente {paziente.name} {paziente.surname}.")
+        
+            from view.doctor import get_edit_patient_data_form
+            return get_edit_patient_data_form(paziente)
+        
+        except Exception as e:
+            return get_error_message(f"Errore: {str(e)}")
+
+    # Callback per salvare i dati clinici modificati
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-salva-dati-paziente', 'n_clicks'),
+        [State('hidden-patient-username', 'children'),
+        State('textarea-fattori-rischio', 'value'),
+        State('textarea-pregresse-patologie', 'value'),
+        State('textarea-comorbidita', 'value'),
+        State('textarea-info-aggiornate', 'value')],
+        prevent_initial_call=True
+    )
+    @db_session
+    def save_patient_data_modifications(n_clicks, patient_username, fattori_rischio, 
+                                  pregresse_patologie, comorbidita, info_aggiornate):
+        """Salva le modifiche ai dati clinici del paziente"""
+        if not n_clicks or not patient_username:
+            return dash.no_update
+    
+        try:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            paziente = Paziente.get(username=patient_username)
+            if not paziente:
+                return get_error_message("Paziente non trovato!")
+        
+            # Verifica che il medico segua questo paziente
+            if medico not in paziente.doctors:
+                return get_error_message(f"Accesso negato: Non sei autorizzato a modificare i dati del paziente {paziente.name} {paziente.surname}.")
+        
+            # Aggiorna i dati clinici del paziente
+            paziente.fattori_rischio = fattori_rischio.strip() if fattori_rischio else None
+            paziente.pregresse_patologie = pregresse_patologie.strip() if pregresse_patologie else None
+            paziente.comorbidita = comorbidita.strip() if comorbidita else None
+            paziente.info_aggiornate = info_aggiornate.strip() if info_aggiornate else None
+        
+            commit()
+        
+            paziente_nome = f"{paziente.name} {paziente.surname}"
+        
+            from view.doctor import get_patient_data_update_success_message
+            return get_patient_data_update_success_message(paziente_nome)
+        
+        except Exception as e:
+            print(f"DEBUG: Errore nel salvataggio dati paziente: {e}")
+            import traceback
+            traceback.print_exc()
+            return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+
+    # Callback per annullare la modifica dei dati e tornare alla visualizzazione
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-annulla-modifica-dati', 'n_clicks'),
+        State('hidden-patient-username', 'children'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def cancel_patient_data_edit(n_clicks, patient_username):
+        """Annulla la modifica e torna alla visualizzazione dei dati del paziente"""
+        if not n_clicks or not patient_username:
+            return dash.no_update
+    
+        try:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            # Ottieni i pazienti che il medico segue e ritorna al menu dati pazienti
+            pazienti_seguiti = list(medico.patients)
+        
+            from view.doctor import get_dati_pazienti_menu
+            return get_dati_pazienti_menu(pazienti_seguiti)
+        
+        except Exception as e:
+            return get_error_message(f"Errore: {str(e)}")
+
+    # Callback per il bottone "altro paziente"
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-altro-paziente', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def show_another_patient_menu(n_clicks):
+        """Mostra di nuovo il menu per selezionare un altro paziente"""
+        if n_clicks:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            pazienti_seguiti = list(medico.patients)
+        
+            from view.doctor import get_dati_pazienti_menu
+            return get_dati_pazienti_menu(pazienti_seguiti)
+        return dash.no_update
+
+    # Callback per il bottone "visualizza dati aggiornati" dopo il salvataggio
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-visualizza-dati-aggiornati', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def show_updated_patient_data(n_clicks):
+        """Mostra di nuovo il menu dati pazienti dopo l'aggiornamento"""
+        if n_clicks:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            pazienti_seguiti = list(medico.patients)
+        
+            from view.doctor import get_dati_pazienti_menu
+            return get_dati_pazienti_menu(pazienti_seguiti)
+        return dash.no_update
+
+    # Callback per il bottone "gestisci altri pazienti" dopo il salvataggio
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-gestisci-altri-pazienti', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def manage_other_patients(n_clicks):
+        """Mostra il menu per gestire altri pazienti"""
+        if n_clicks:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+        
+            pazienti_seguiti = list(medico.patients)
+        
+            from view.doctor import get_dati_pazienti_menu
+            return get_dati_pazienti_menu(pazienti_seguiti)
+        return dash.no_update
         

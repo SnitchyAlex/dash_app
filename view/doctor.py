@@ -85,11 +85,11 @@ def get_doctor_dashboard(username):
                             dbc.Col([
                                 dbc.Button(
                                     [
-                                        html.Img(src="/assets/pazienti.png", 
+                                        html.Img(src="/assets/dati.png", 
                                                style={"width": "35px", "height": "35px", "margin-right": "8px"}),
-                                        "Gestisci Pazienti"
+                                        "Dati Pazienti"
                                     ],
-                                    id="btn-gestisci-pazienti",
+                                    id="btn-dati-paziente",
                                     className="btn-success w-100",
                                     size="lg"
                                 )
@@ -976,6 +976,332 @@ def get_terapia_delete_success_message(paziente_nome, nome_farmaco, dosaggio):
                 )
             ], width=6)
         ], className="g-3")  # g-3 aggiunge spaziatura tra le colonne
+    ]
+    
+    return dbc.Alert(children, color="success", dismissable=True)
+
+def get_dati_pazienti_menu(pazienti):
+    """Menu per selezionare il paziente di cui visualizzare i dati"""
+    # Prepara le opzioni per il dropdown pazienti
+    pazienti_options = [
+        {"label": f"{p.name} {p.surname} ({p.username})", "value": p.username} 
+        for p in pazienti
+    ]
+    
+    if not pazienti_options:
+        return dbc.Card([
+            dbc.CardHeader([
+                html.Div([
+                    html.H5("Dati Pazienti", className="mb-0 text-primary", style={"display": "inline-block"})
+                ])
+            ]),
+            dbc.CardBody([
+                dbc.Alert([
+                    html.H5("Nessun paziente trovato", className="alert-heading"),
+                    html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
+                    html.Hr(),
+                    dbc.Button(
+                        "← Torna al Menu Principale",
+                        id="btn-torna-menu-principale",
+                        color="warning",
+                        size="sm"
+                    )
+                ], color="warning")
+            ])
+        ], className="mt-3")
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.Div([
+                html.H5("Dati Pazienti", className="mb-0 text-primary", style={"display": "inline-block"})
+            ])
+        ]),
+        dbc.CardBody([
+            html.P("Seleziona il paziente di cui vuoi visualizzare o modificare i dati clinici:", className="card-text mb-4"),
+            
+            # Selezione paziente
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Seleziona Paziente *", className="form-label"),
+                    dbc.Select(
+                        id="select-paziente-dati",
+                        options=pazienti_options,
+                        placeholder="Seleziona il paziente...",
+                        className="form-control"
+                    ),
+                    dbc.FormText("Seleziona un paziente per visualizzare i suoi dati clinici", className="text-muted")
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Area dove appariranno i dati del paziente selezionato
+            html.Div(id="dati-paziente-display", className="mt-3"),
+            
+            # Bottone per tornare indietro
+            html.Hr(),
+            dbc.Button(
+                "← Torna al Menu Principale",
+                id="btn-torna-menu-principale",
+                color="secondary",
+                size="sm"
+            )
+        ])
+    ], className="mt-3")
+
+def get_patient_data_display(paziente):
+    """Visualizza i dati clinici del paziente con opzione di modifica"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.Div([
+                html.Img(src="/assets/patient.png", 
+                       style={"width": "30px", "height": "30px", "margin-right": "8px"}),
+                html.H6(f"Dati Clinici - {paziente.name} {paziente.surname}", 
+                       className="mb-0 text-primary", style={"display": "inline-block"})
+            ])
+        ]),
+        dbc.CardBody([
+            # Informazioni di base del paziente
+            dbc.Row([
+                dbc.Col([
+                    html.H6("Informazioni Generali", className="text-secondary mb-3"),
+                    html.P([
+                        html.Strong("Nome Completo: "), f"{paziente.name} {paziente.surname}", html.Br(),
+                        html.Strong("Username: "), paziente.username, html.Br(),
+                        html.Strong("Data di Nascita: "), 
+                        paziente.birth_date.strftime('%d/%m/%Y') if paziente.birth_date else "Non specificata", html.Br(),
+                        html.Strong("Età: "), f"{paziente.eta} anni" if paziente.eta else "Non specificata", html.Br(),
+                        html.Strong("Codice Fiscale: "), paziente.codice_fiscale if paziente.codice_fiscale else "Non specificato"
+                    ], className="card-text")
+                ], width=12, md=6),
+                
+                dbc.Col([
+                    html.H6("Dati Clinici", className="text-secondary mb-3"),
+                    html.P([
+                        html.Strong("Fattori di Rischio: "), html.Br(),
+                        html.Span(paziente.fattori_rischio if paziente.fattori_rischio else "Nessun fattore di rischio specificato", 
+                                className="text-muted" if not paziente.fattori_rischio else ""), html.Br(), html.Br(),
+                        
+                        html.Strong("Pregresse Patologie: "), html.Br(),
+                        html.Span(paziente.pregresse_patologie if paziente.pregresse_patologie else "Nessuna patologia pregressa specificata", 
+                                className="text-muted" if not paziente.pregresse_patologie else ""), html.Br(), html.Br(),
+                        
+                        html.Strong("Comorbidità: "), html.Br(),
+                        html.Span(paziente.comorbidita if paziente.comorbidita else "Nessuna comorbidità specificata", 
+                                className="text-muted" if not paziente.comorbidita else ""), html.Br(), html.Br(),
+                        
+                        html.Strong("Informazioni Aggiornate: "), html.Br(),
+                        html.Span(paziente.info_aggiornate if paziente.info_aggiornate else "Nessuna informazione aggiuntiva", 
+                                className="text-muted" if not paziente.info_aggiornate else "")
+                    ], className="card-text")
+                ], width=12, md=6)
+            ], className="mb-4"),
+            
+            # Bottoni per le azioni
+            html.Hr(),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button(
+                        [
+                            html.I(className="fas fa-edit me-2"),
+                            "Modifica Dati Clinici"
+                        ],
+                        id="btn-modifica-dati-paziente",
+                        color="primary",
+                        size="lg",
+                        className="w-100"
+                    )
+                ], width=12, md=4),
+                
+                dbc.Col([
+                    dbc.Button(
+                        [
+                            html.I(className="fas fa-user-plus me-2"),
+                            "Seleziona Altro Paziente"
+                        ],
+                        id="btn-altro-paziente",
+                        color="success",
+                        size="lg",
+                        className="w-100"
+                    )
+                ], width=12, md=4),
+                
+                dbc.Col([
+                    dbc.Button(
+                        [
+                            html.I(className="fas fa-arrow-left me-2"),
+                            "Torna al Menu"
+                        ],
+                        id="btn-torna-menu-principale",
+                        color="secondary",
+                        size="lg",
+                        className="w-100"
+                    )
+                ], width=12, md=4)
+            ], className="g-3")
+        ])
+    ], className="mt-3")
+
+def get_edit_patient_data_form(paziente):
+    """Form per modificare i dati clinici del paziente"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.Div([
+                html.I(className="fas fa-user-edit fa-lg me-2"),
+                html.H5(f"Modifica Dati Clinici - {paziente.name} {paziente.surname}", 
+                       className="mb-0 text-primary", style={"display": "inline-block"})
+            ])
+        ]),
+        dbc.CardBody([
+            # Campo nascosto per l'username del paziente
+            html.Div(id="hidden-patient-username", children=paziente.username, style={"display": "none"}),
+            
+            # Alert informativo
+            dbc.Alert([
+                html.Strong("Stai modificando i dati clinici di: "),
+                f"{paziente.name} {paziente.surname} ({paziente.username})"
+            ], color="info", className="mb-4"),
+            
+            # Fattori di rischio
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Fattori di Rischio", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-fattori-rischio",
+                        placeholder="es. Diabete familiare, ipertensione, obesità, fumo...",
+                        value=paziente.fattori_rischio if paziente.fattori_rischio else '',
+                        rows=3,
+                        className="form-control"
+                    ),
+                    dbc.FormText("Elenca i principali fattori di rischio del paziente", className="text-muted")
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Pregresse patologie
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Pregresse Patologie", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-pregresse-patologie",
+                        placeholder="es. Infarto del miocardio 2020, bypass coronarico 2018...",
+                        value=paziente.pregresse_patologie if paziente.pregresse_patologie else '',
+                        rows=3,
+                        className="form-control"
+                    ),
+                    dbc.FormText("Elenca le principali patologie pregresse del paziente", className="text-muted")
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Comorbidità
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Comorbidità", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-comorbidita",
+                        placeholder="es. Insufficienza renale cronica, BPCO, depressione...",
+                        value=paziente.comorbidita if paziente.comorbidita else '',
+                        rows=3,
+                        className="form-control"
+                    ),
+                    dbc.FormText("Elenca le comorbidità attuali del paziente", className="text-muted")
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Informazioni aggiornate
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Informazioni Aggiuntive/Aggiornate", className="form-label"),
+                    dbc.Textarea(
+                        id="textarea-info-aggiornate",
+                        placeholder="es. Allergie, note particolari, aggiornamenti recenti...",
+                        value=paziente.info_aggiornate if paziente.info_aggiornate else '',
+                        rows=4,
+                        className="form-control"
+                    ),
+                    dbc.FormText("Aggiungi informazioni aggiuntive o aggiornamenti recenti", className="text-muted")
+                ], width=12)
+            ], className="mb-3"),
+            
+            # Note informative
+            dbc.Alert([
+                html.I(className="fas fa-info-circle me-2"),
+                html.Strong("Nota: "),
+                "I campi possono essere lasciati vuoti se non applicabili. Le modifiche saranno salvate immediatamente."
+            ], color="info", className="mb-4"),
+            
+            # Pulsanti
+            html.Div([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-save me-2"),
+                        "Salva Modifiche"
+                    ],
+                    id="btn-salva-dati-paziente",
+                    color="success",
+                    size="lg",
+                    className="me-2"
+                ),
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-times me-2"),
+                        "Annulla"
+                    ],
+                    id="btn-annulla-modifica-dati",
+                    color="secondary",
+                    size="lg"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end")
+        ])
+    ], className="mt-3")
+
+def get_patient_data_update_success_message(paziente_nome):
+    """Messaggio di successo dopo aggiornamento dati paziente"""
+    children = [
+        html.I(className="fas fa-check-circle fa-2x text-success mb-3"),
+        html.H5("Dati clinici aggiornati con successo!", className="alert-heading"),
+        html.P(f"I dati clinici di {paziente_nome} sono stati aggiornati correttamente."),
+        html.P("Le modifiche sono state salvate nel sistema.", className="text-muted"),
+        html.Hr(),
+        # Layout con pulsanti separati
+        dbc.Row([
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-eye me-2"),
+                        "Visualizza Dati Aggiornati"
+                    ], 
+                    id="btn-visualizza-dati-aggiornati", 
+                    color="primary", 
+                    size="sm",
+                    className="w-100"
+                )
+            ], width=6),
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-users me-2"),
+                        "Gestisci Altri Pazienti"
+                    ], 
+                    id="btn-gestisci-altri-pazienti", 
+                    color="success", 
+                    size="sm",
+                    className="w-100"
+                )
+            ], width=6)
+        ], className="g-3 mb-3"),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-arrow-left me-2"),
+                        "Torna al Menu Principale"
+                    ], 
+                    id="btn-torna-menu-principale", 
+                    color="secondary", 
+                    size="lg",
+                    className="w-100"
+                )
+            ], width=12)
+        ])
     ]
     
     return dbc.Alert(children, color="success", dismissable=True)
