@@ -2,7 +2,7 @@ from .database import db, configure_db
 
 # Configura il database per primo
 db_path = configure_db()
-
+#genero un commento per vedere se funziona comit e push
 # Solo se la configurazione è riuscita, procedi
 if db_path is not None:
     # Poi importa tutte le entità
