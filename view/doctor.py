@@ -142,8 +142,6 @@ def get_terapie_menu():
     return dbc.Card([
         dbc.CardHeader([
             html.Div([
-                html.Img(src="/assets/terapia.png", 
-                       style={"width": "40px", "height": "40px", "margin-right": "10px"}),
                 html.H5("Gestione Terapie", className="mb-0 text-primary", style={"display": "inline-block"})
             ])
         ]),
@@ -193,10 +191,11 @@ def get_terapie_menu():
             # Bottone per tornare indietro
             html.Hr(),
             dbc.Button(
-                "← Torna al Menu Principale",
+                "Torna al Menu Principale",
                 id="btn-torna-menu-principale",
-                color="secondary",
-                size="sm"
+                color="info",
+                size="sm",
+                className="btn-info"
             )
         ])
     ], className="mt-3")
@@ -220,7 +219,7 @@ def get_assegna_terapia_form(pazienti):
                     html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
                     html.Hr(),
                     dbc.Button(
-                        "← Torna al Menu Terapie",
+                        "Torna al Menu Terapie",
                         id="btn-torna-menu-terapie",
                         color="warning",
                         size="sm"
@@ -363,10 +362,11 @@ def get_assegna_terapia_form(pazienti):
                     className="me-2"
                 ),
                 dbc.Button(
-                    "← Torna al Menu Terapie",
+                    "Torna al Menu Terapie",
                     id="btn-torna-menu-terapie",
-                    color="secondary",
-                    size="lg"
+                    color="info",
+                    size="lg",
+                    className="btn-info"
                 )
             ], className="d-grid gap-2 d-md-flex justify-content-md-end")
         ])
@@ -391,7 +391,7 @@ def get_modifica_terapia_form(pazienti):
                     html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
                     html.Hr(),
                     dbc.Button(
-                        "← Torna al Menu Terapie",
+                        "Torna al Menu Terapie",
                         id="btn-torna-menu-terapie",
                         color="warning",
                         size="sm"
@@ -425,10 +425,11 @@ def get_modifica_terapia_form(pazienti):
             # Pulsanti
             html.Div([
                 dbc.Button(
-                    "← Torna al Menu Terapie",
+                    "Torna al Menu Terapie",
                     id="btn-torna-menu-terapie",
-                    color="secondary",
-                    size="lg"
+                    color="info",
+                    size="lg",
+                    className="btn-info w-100"
                 )
             ], className="d-grid gap-2 d-md-flex justify-content-md-end")
         ])
@@ -453,7 +454,7 @@ def get_elimina_terapia_form(pazienti):
                     html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
                     html.Hr(),
                     dbc.Button(
-                        "← Torna al Menu Terapie",
+                        "Torna al Menu Terapie",
                         id="btn-torna-menu-terapie",
                         color="danger",
                         size="sm"
@@ -492,10 +493,11 @@ def get_elimina_terapia_form(pazienti):
             # Pulsanti
             html.Div([
                 dbc.Button(
-                    "← Torna al Menu Terapie",
+                    "Torna al Menu Terapie",
                     id="btn-torna-menu-terapie",
-                    color="secondary",
-                    size="lg"
+                    color="info",
+                    size="lg",
+                    className="btn-info w-100"
                 )
             ], className="d-grid gap-2 d-md-flex justify-content-md-end")
         ])
@@ -529,11 +531,11 @@ def get_terapia_success_message(paziente_nome, nome_farmaco, dosaggio, assunzion
                          className="w-100")
             ], width=6),
             dbc.Col([
-                dbc.Button("← Torna al Menu Terapie", 
+                dbc.Button("Torna al Menu Terapie", 
                          id="btn-torna-menu-terapie", 
-                         color="secondary", 
+                         color="info", 
                          size="lg",
-                         className="w-100")
+                         className="btn-info w-100")
             ], width=6)
         ], className="g-3")  # g-3 aggiunge spaziatura tra le colonne
     ])
@@ -812,10 +814,11 @@ def get_edit_terapia_form(terapia, pazienti):
                     className="me-2"
                 ),
                 dbc.Button(
-                    "← Torna al Menu Terapie",
+                    "Torna al Menu Terapie",
                     id="btn-torna-menu-terapie",
-                    color="secondary",
-                    size="lg"
+                    color="info",
+                    size="lg",
+                    className="btn-info"
                 )
             ], className="d-grid gap-2 d-md-flex justify-content-md-end")
         ])
@@ -849,11 +852,11 @@ def get_terapia_modify_success_message(paziente_nome, nome_farmaco, dosaggio, as
                          className="w-100")
             ], width=6),
             dbc.Col([
-                dbc.Button("← Torna al Menu Terapie", 
+                dbc.Button("Torna al Menu Terapie", 
                          id="btn-torna-menu-terapie", 
-                         color="secondary", 
+                         color="info", 
                          size="lg",
-                         className="w-100")
+                         className="btn-info w-100")
             ], width=6)
         ], className="g-3")  # g-3 aggiunge spaziatura tra le colonne
     ])
@@ -970,9 +973,9 @@ def get_terapia_delete_success_message(paziente_nome, nome_farmaco, dosaggio):
                         "Torna al Menu Terapie"
                     ], 
                     id="btn-torna-menu-terapie", 
-                    color="secondary", 
+                    color="info", 
                     size="lg",
-                    className="w-100"
+                    className="btn-info w-100"
                 )
             ], width=6)
         ], className="g-3")  # g-3 aggiunge spaziatura tra le colonne
@@ -1001,7 +1004,7 @@ def get_dati_pazienti_menu(pazienti):
                     html.P("Non hai ancora pazienti assegnati. Contatta l'amministratore per associare pazienti al tuo profilo."),
                     html.Hr(),
                     dbc.Button(
-                        "← Torna al Menu Principale",
+                        "Torna al Menu Principale",
                         id="btn-torna-menu-principale",
                         color="warning",
                         size="sm"
@@ -1035,19 +1038,10 @@ def get_dati_pazienti_menu(pazienti):
             
             # Area dove appariranno i dati del paziente selezionato
             html.Div(id="dati-paziente-display", className="mt-3"),
-            
-            # Bottone per tornare indietro
-            html.Hr(),
-            dbc.Button(
-                "← Torna al Menu Principale",
-                id="btn-torna-menu-principale",
-                color="secondary",
-                size="sm"
-            )
         ])
     ], className="mt-3")
 
-def get_patient_data_display(paziente):
+def get_patient_data_display(paziente, can_modify=True):
     """Visualizza i dati clinici del paziente con opzione di modifica"""
     return dbc.Card([
         dbc.CardHeader([
@@ -1087,16 +1081,32 @@ def get_patient_data_display(paziente):
                         html.Strong("Comorbidità: "), html.Br(),
                         html.Span(paziente.comorbidita if paziente.comorbidita else "Nessuna comorbidità specificata", 
                                 className="text-muted" if not paziente.comorbidita else ""), html.Br(), html.Br(),
-                        
-                        html.Strong("Informazioni Aggiornate: "), html.Br(),
-                        html.Span(paziente.info_aggiornate if paziente.info_aggiornate else "Nessuna informazione aggiuntiva", 
-                                className="text-muted" if not paziente.info_aggiornate else "")
                     ], className="card-text")
                 ], width=12, md=6)
             ], className="mb-4"),
             
+            # Sezione informazioni sulla modifica (solo se presente)
+            html.Div([
+                html.Hr(),
+                dbc.Alert([
+                    html.I(className="fas fa-info-circle me-2"),
+                    html.Strong("Ultima modifica effettuata da: "),
+                    html.Span(paziente.info_aggiornate, className="fw-bold")
+                ], color="info", className="mb-3")
+            ]) if paziente.info_aggiornate else html.Div(),
+            
+            # Alert se il medico non può modificare i dati
+            html.Div([
+                html.Hr() if paziente.info_aggiornate else html.Div(),
+                dbc.Alert([
+                    html.I(className="fas fa-exclamation-triangle me-2"),
+                    html.Strong("Accesso limitato: "),
+                    "Non sei autorizzato a modificare i dati clinici di questo paziente. Solo i medici che seguono il paziente possono modificare i suoi dati."
+                ], color="warning", className="mb-3")
+            ]) if not can_modify else html.Div(),
+            
             # Bottoni per le azioni
-            html.Hr(),
+            html.Hr() if (not paziente.info_aggiornate and can_modify) else html.Div(),
             dbc.Row([
                 dbc.Col([
                     dbc.Button(
@@ -1107,7 +1117,8 @@ def get_patient_data_display(paziente):
                         id="btn-modifica-dati-paziente",
                         color="primary",
                         size="lg",
-                        className="w-100"
+                        className="w-100",
+                        disabled=not can_modify  # Disabilita se non può modificare
                     )
                 ], width=12, md=4),
                 
@@ -1118,7 +1129,7 @@ def get_patient_data_display(paziente):
                             "Seleziona Altro Paziente"
                         ],
                         id="btn-altro-paziente",
-                        color="success",
+                        color="primary",
                         size="lg",
                         className="w-100"
                     )
@@ -1131,14 +1142,15 @@ def get_patient_data_display(paziente):
                             "Torna al Menu"
                         ],
                         id="btn-torna-menu-principale",
-                        color="secondary",
+                        color="info",
                         size="lg",
-                        className="w-100"
+                        className="btn-info w-100"
                     )
                 ], width=12, md=4)
             ], className="g-3")
         ])
     ], className="mt-3")
+
 
 def get_edit_patient_data_form(paziente):
     """Form per modificare i dati clinici del paziente"""
@@ -1205,20 +1217,6 @@ def get_edit_patient_data_form(paziente):
                 ], width=12)
             ], className="mb-3"),
             
-            # Informazioni aggiornate
-            dbc.Row([
-                dbc.Col([
-                    dbc.Label("Informazioni Aggiuntive/Aggiornate", className="form-label"),
-                    dbc.Textarea(
-                        id="textarea-info-aggiornate",
-                        placeholder="es. Allergie, note particolari, aggiornamenti recenti...",
-                        value=paziente.info_aggiornate if paziente.info_aggiornate else '',
-                        rows=4,
-                        className="form-control"
-                    ),
-                    dbc.FormText("Aggiungi informazioni aggiuntive o aggiornamenti recenti", className="text-muted")
-                ], width=12)
-            ], className="mb-3"),
             
             # Note informative
             dbc.Alert([
@@ -1235,7 +1233,7 @@ def get_edit_patient_data_form(paziente):
                         "Salva Modifiche"
                     ],
                     id="btn-salva-dati-paziente",
-                    color="success",
+                    color="primary",
                     size="lg",
                     className="me-2"
                 ),
@@ -1281,7 +1279,7 @@ def get_patient_data_update_success_message(paziente_nome):
                         "Gestisci Altri Pazienti"
                     ], 
                     id="btn-gestisci-altri-pazienti", 
-                    color="success", 
+                    color="primary", 
                     size="sm",
                     className="w-100"
                 )
@@ -1296,14 +1294,198 @@ def get_patient_data_update_success_message(paziente_nome):
                         "Torna al Menu Principale"
                     ], 
                     id="btn-torna-menu-principale", 
-                    color="secondary", 
+                    color="info", 
                     size="lg",
-                    className="w-100"
+                    className="btn-info w-100"
                 )
             ], width=12)
         ])
     ]
     
     return dbc.Alert(children, color="success", dismissable=True)
+
+def get_segui_paziente_form(tutti_pazienti, pazienti_seguiti):
+    """Form per seguire un nuovo paziente"""
+    # Prepara le opzioni per il dropdown - solo pazienti non ancora seguiti
+    pazienti_non_seguiti = [
+        p for p in tutti_pazienti 
+        if p not in pazienti_seguiti
+    ]
+    
+    pazienti_options = [
+        {"label": f"{p.name} {p.surname} ({p.username})", "value": p.username} 
+        for p in pazienti_non_seguiti
+    ]
+    
+    if not pazienti_options:
+        return dbc.Card([
+            dbc.CardHeader([
+                html.Div([
+                    html.H5("Segui Nuovo Paziente", className="mb-0 text-primary", style={"display": "inline-block"})
+                ])
+            ]),
+            dbc.CardBody([
+                dbc.Alert([
+                    html.H5("Nessun nuovo paziente disponibile", className="alert-heading"),
+                    html.P("Stai già seguendo tutti i pazienti disponibili nel sistema."),
+                    html.Hr(),
+                    dbc.Button(
+                        "Torna al Menu Principale",
+                        id="btn-torna-menu-principale",
+                        color="info",
+                        size="sm",
+                        className="btn-info"
+                    )
+                ], color="info")
+            ])
+        ], className="mt-3")
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.Div([
+                html.Img(src="/assets/segui.png", 
+                       style={"width": "40px", "height": "40px", "margin-right": "10px"}),
+                html.H5("Segui Nuovo Paziente", className="mb-0 text-primary", style={"display": "inline-block"})
+            ])
+        ]),
+        dbc.CardBody([
+            html.P("Seleziona il paziente che vuoi iniziare a seguire:", className="card-text mb-4"),
+            
+            # Informazioni sui pazienti attualmente seguiti
+            html.Div([
+                html.H6("Pazienti che segui attualmente:", className="text-secondary mb-2"),
+                html.Ul([
+                    html.Li(f"{p.name} {p.surname} ({p.username})") 
+                    for p in pazienti_seguiti
+                ]) if pazienti_seguiti else html.P("Non segui ancora nessun paziente.", className="text-muted"),
+                html.Hr()
+            ]),
+            
+            # Selezione nuovo paziente
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Seleziona Nuovo Paziente *", className="form-label"),
+                    dbc.Select(
+                        id="select-nuovo-paziente",
+                        options=pazienti_options,
+                        placeholder="Seleziona il paziente da seguire...",
+                        className="form-control"
+                    ),
+                    dbc.FormText("Seleziona un paziente per iniziare a seguirlo", className="text-muted")
+                ], width=12)
+            ], className="mb-4"),
+            
+            # Note informative
+            dbc.Alert([
+                html.I(className="fas fa-info-circle me-2"),
+                html.Strong("Nota: "),
+                "Una volta che inizi a seguire un paziente, potrai gestire le sue terapie e modificare i suoi dati clinici."
+            ], color="info", className="mb-4"),
+            
+            # Pulsanti
+            html.Div([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-user-plus me-2"),
+                        "Inizia a Seguire"
+                    ],
+                    id="btn-conferma-segui-paziente",
+                    color="success",
+                    size="lg",
+                    className="btn-primary"
+                ),
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-arrow-left me-2"),
+                        "Torna al Menu"
+                    ],
+                    id="btn-torna-menu-principale",
+                    color="info",
+                    size="lg",
+                    className="btn-info ms-2"
+                )
+            ], className="d-grid gap-2 d-md-flex justify-content-md-end")
+        ])
+    ], className="mt-3")
+
+def get_segui_paziente_success_message(paziente_nome, paziente_username):
+    """Messaggio di successo dopo aver iniziato a seguire un paziente"""
+    children = [
+        html.I(className="fas fa-check-circle fa-2x text-success mb-3"),
+        html.H5("Paziente aggiunto con successo!", className="alert-heading"),
+        html.P(f"Ora stai seguendo: {paziente_nome} ({paziente_username})"),
+        html.P("Puoi ora gestire le sue terapie e visualizzare i suoi dati clinici.", className="text-muted"),
+        html.Hr(),
+        # Layout con pulsanti separati
+        dbc.Row([
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-user-plus me-2"),
+                        "Segui Altro Paziente"
+                    ], 
+                    id="btn-segui-altro-paziente", 
+                    color="primary", 
+                    size="lg",
+                    className="w-100"
+                )
+            ], width=6),
+        ], className="g-3 mb-3"),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-arrow-left me-2"),
+                        "Torna al Menu Principale"
+                    ], 
+                    id="btn-torna-menu-principale", 
+                    color="info", 
+                    size="lg",
+                    className="btn-info"
+                )
+            ], width=12)
+        ])
+    ]
+    
+    return dbc.Alert(children, color="success", dismissable=True)
+
+def get_paziente_gia_seguito_message(paziente_nome):
+    """Messaggio quando si tenta di seguire un paziente già seguito"""
+    children = [
+        html.I(className="fas fa-info-circle fa-2x text-info mb-3"),
+        html.H5("Paziente già seguito", className="alert-heading"),
+        html.P(f"Stai già seguendo il paziente: {paziente_nome}"),
+        html.P("Non è necessario aggiungerlo nuovamente.", className="text-muted"),
+        html.Hr(),
+        dbc.Row([
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-user-plus me-2"),
+                        "Segui Altro Paziente"
+                    ], 
+                    id="btn-segui-altro-paziente", 
+                    color="success", 
+                    size="sm",
+                    className="w-100"
+                )
+            ], width=6),
+            dbc.Col([
+                dbc.Button(
+                    [
+                        html.I(className="fas fa-arrow-left me-2"),
+                        "Torna al Menu"
+                    ], 
+                    id="btn-torna-menu-principale", 
+                    color="info", 
+                    size="lg",
+                    className="btn-info w-100"
+                )
+            ], width=6)
+        ], className="g-3")
+    ]
+    
+    return dbc.Alert(children, color="info", dismissable=True)
 
     

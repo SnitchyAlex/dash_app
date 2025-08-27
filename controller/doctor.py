@@ -746,11 +746,11 @@ def register_doctor_callbacks(app):
                 return get_error_message("Errore: medico non trovato!")
         
             # Ottieni solo i pazienti che il medico segue
-            pazienti_seguiti = list(medico.patients)
+            pazienti_lista = list(Paziente.select())
         
             # Importa la funzione
             from view.doctor import get_dati_pazienti_menu
-            return get_dati_pazienti_menu(pazienti_seguiti)
+            return get_dati_pazienti_menu(pazienti_lista)
         return dash.no_update
     
     # Callback per visualizzare i dati del paziente selezionato
@@ -774,12 +774,10 @@ def register_doctor_callbacks(app):
             if not paziente:
                 return get_error_message("Paziente non trovato!")
         
-            # Verifica che il medico segua questo paziente
-            if medico not in paziente.doctors:
-                return get_error_message(f"Accesso negato: Non sei autorizzato a visualizzare i dati del paziente {paziente.name} {paziente.surname}.")
-        
+            can_modify = medico in paziente.doctors
+
             from view.doctor import get_patient_data_display
-            return get_patient_data_display(paziente)
+            return get_patient_data_display(paziente, can_modify)
         
         except Exception as e:
             return get_error_message(f"Errore: {str(e)}")
@@ -823,13 +821,12 @@ def register_doctor_callbacks(app):
         [State('hidden-patient-username', 'children'),
         State('textarea-fattori-rischio', 'value'),
         State('textarea-pregresse-patologie', 'value'),
-        State('textarea-comorbidita', 'value'),
-        State('textarea-info-aggiornate', 'value')],
+        State('textarea-comorbidita', 'value')],
         prevent_initial_call=True
     )
     @db_session
     def save_patient_data_modifications(n_clicks, patient_username, fattori_rischio, 
-                                  pregresse_patologie, comorbidita, info_aggiornate):
+                                  pregresse_patologie, comorbidita):
         """Salva le modifiche ai dati clinici del paziente"""
         if not n_clicks or not patient_username:
             return dash.no_update
@@ -851,7 +848,7 @@ def register_doctor_callbacks(app):
             paziente.fattori_rischio = fattori_rischio.strip() if fattori_rischio else None
             paziente.pregresse_patologie = pregresse_patologie.strip() if pregresse_patologie else None
             paziente.comorbidita = comorbidita.strip() if comorbidita else None
-            paziente.info_aggiornate = info_aggiornate.strip() if info_aggiornate else None
+            paziente.info_aggiornate = f"Dr. {medico.name} {medico.surname}"
         
             commit()
         
@@ -885,10 +882,10 @@ def register_doctor_callbacks(app):
                 return get_error_message("Errore: medico non trovato!")
         
             # Ottieni i pazienti che il medico segue e ritorna al menu dati pazienti
-            pazienti_seguiti = list(medico.patients)
+            pazienti = list(Paziente.select())
         
             from view.doctor import get_dati_pazienti_menu
-            return get_dati_pazienti_menu(pazienti_seguiti)
+            return get_dati_pazienti_menu(pazienti)
         
         except Exception as e:
             return get_error_message(f"Errore: {str(e)}")
@@ -907,10 +904,10 @@ def register_doctor_callbacks(app):
             if not medico:
                 return get_error_message("Errore: medico non trovato!")
         
-            pazienti_seguiti = list(medico.patients)
+            pazienti = list(Paziente.select())
         
             from view.doctor import get_dati_pazienti_menu
-            return get_dati_pazienti_menu(pazienti_seguiti)
+            return get_dati_pazienti_menu(pazienti)
         return dash.no_update
 
     # Callback per il bottone "visualizza dati aggiornati" dopo il salvataggio
@@ -927,10 +924,10 @@ def register_doctor_callbacks(app):
             if not medico:
                 return get_error_message("Errore: medico non trovato!")
         
-            pazienti_seguiti = list(medico.patients)
+            pazienti = list(Paziente.select())
         
             from view.doctor import get_dati_pazienti_menu
-            return get_dati_pazienti_menu(pazienti_seguiti)
+            return get_dati_pazienti_menu(pazienti)
         return dash.no_update
 
     # Callback per il bottone "gestisci altri pazienti" dopo il salvataggio
@@ -947,9 +944,95 @@ def register_doctor_callbacks(app):
             if not medico:
                 return get_error_message("Errore: medico non trovato!")
         
-            pazienti_seguiti = list(medico.patients)
+            pazienti = list(Paziente.select())
         
             from view.doctor import get_dati_pazienti_menu
-            return get_dati_pazienti_menu(pazienti_seguiti)
+            return get_dati_pazienti_menu(pazienti)
+        return dash.no_update
+    
+    def register_segui_paziente_callbacks(app):
+        """Registra i callback per seguire nuovi pazienti"""
+    
+    # Callback per mostrare il form "Segui nuovo paziente"
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-segui-pazienti', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def show_segui_paziente_form(n_clicks):
+        """Mostra il form per seguire un nuovo paziente"""
+        if n_clicks:
+            medico = Medico.get(username=current_user.username)
+            
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+            
+            # Ottieni tutti i pazienti e quelli già seguiti
+            tutti_pazienti = list(Paziente.select())
+            pazienti_seguiti = list(medico.patients)
+            
+            from view.doctor import get_segui_paziente_form
+            return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti)
+        return dash.no_update
+
+    # Callback per confermare e seguire il paziente selezionato
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-conferma-segui-paziente', 'n_clicks'),
+        State('select-nuovo-paziente', 'value'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def conferma_segui_paziente(n_clicks, paziente_username):
+        """Conferma e inizia a seguire il paziente selezionato"""
+        if not n_clicks or not paziente_username:
+            return dash.no_update
+        
+        try:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+            
+            paziente = Paziente.get(username=paziente_username)
+            if not paziente:
+                return get_error_message("Errore: paziente non trovato!")
+            
+            # Controlla se il medico segue già questo paziente
+            if paziente in medico.patients:
+                paziente_nome = f"{paziente.name} {paziente.surname}"
+                from view.doctor import get_paziente_gia_seguito_message
+                return get_paziente_gia_seguito_message(paziente_nome)
+            
+            # Aggiungi il paziente alla lista dei pazienti seguiti dal medico
+            medico.patients.add(paziente)
+            commit()
+            
+            paziente_nome = f"{paziente.name} {paziente.surname}"
+            from view.doctor import get_segui_paziente_success_message
+            return get_segui_paziente_success_message(paziente_nome, paziente_username)
+            
+        except Exception as e:
+            return get_error_message(f"Errore durante l'operazione: {str(e)}")
+
+    # Callback per il bottone "Segui altro paziente" nei messaggi di successo/info
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-segui-altro-paziente', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def show_segui_altro_paziente_form(n_clicks):
+        """Mostra di nuovo il form per seguire un altro paziente"""
+        if n_clicks:
+            medico = Medico.get(username=current_user.username)
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+            
+            tutti_pazienti = list(Paziente.select())
+            pazienti_seguiti = list(medico.patients)
+            
+            from view.doctor import get_segui_paziente_form
+            return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti)
         return dash.no_update
         
