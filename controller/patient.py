@@ -3,13 +3,17 @@
 import dash
 from dash.dependencies import Input, Output, State
 from flask_login import current_user
-from dash import html
+from dash import html,dcc #aggiunta dcc 
 from datetime import datetime
 from pony.orm import db_session, commit
 from model.glicemia import Glicemia
 from model.assunzione import Assunzione
 from model.paziente import Paziente
 from model.sintomi import Sintomi
+import pandas as pd #import per creare grafici su andamento glicemico
+import plotly.graph_objects as go
+import dash_bootstrap_components as dbc
+
 from view.patient import (
     get_glicemia_form, 
     get_success_message, 
@@ -376,3 +380,293 @@ def register_patient_callbacks(app):
         if n_clicks:
             return get_miei_dati_view()
         return dash.no_update
+    
+    
+    # ANDAMENTO GLICEMICO (PAZIENTE): mostra la card con i 3 grafici
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-andamento-glicemico', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def show_andamento_glicemico(n_clicks):
+        if not n_clicks:
+            return dash.no_update
+        # UI definita nella VIEW
+        return get_andamento_glicemico_view()
+    # --- ANDAMENTO GLICEMICO (PAZIENTE): genera i 3 grafici (DOW, settimanale, mensile) ---
+    @app.callback(
+        Output("patient-week-dow", "figure"),
+        Output("patient-weekly-avg", "figure"),
+        Output("patient-monthly-avg", "figure"),
+        Input("patient-content", "children"),   # render iniziale della card
+        Input("weeks-window", "value"),         # 4 / 8 / 52 (tutto l'anno)
+        prevent_initial_call=False
+    )
+    @db_session
+    def render_week_month_charts(_children, weeks_window):
+        from datetime import timedelta, datetime as _dt
+
+        paz = Paziente.get(username=current_user.username)
+        if not paz:
+            return go.Figure(), go.Figure(), go.Figure()
+
+        # Recupera tutte le rilevazioni del paziente tramite backref (evita select/generator)
+        all_meas = list(paz.rilevazione)
+        if not all_meas:
+            def empty_fig(msg="Nessuna glicemia registrata"):
+                f = go.Figure()
+                f.update_yaxes(range=[0, 300])
+                f.add_annotation(text=msg, xref="paper", yref="paper",
+                                 x=0.5, y=0.5, showarrow=False)
+                f.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10))
+                return f
+            ef = empty_fig()
+            return ef, ef, ef
+
+        # DataFrame base
+        df = pd.DataFrame([{"data": g.data_ora, "valore": g.valore} for g in all_meas])
+        df = df.sort_values("data")
+        df["data"] = pd.to_datetime(df["data"])
+        df.set_index("data", inplace=True)
+
+                # =============================
+        # A) Giorni della settimana (settimana corrente)
+        # =============================
+        today = _dt.now()
+        start_week = (today - timedelta(days=today.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )  # Lunedì
+        end_week = start_week + timedelta(days=7)
+
+        week_df = df.loc[(df.index >= start_week) & (df.index < end_week)].copy()
+
+        fig_dow = go.Figure()
+        fig_dow.update_yaxes(range=[0, 300], title="mg/dL")
+
+        # Etichette asse X in italiano, Lunedì -> Domenica
+        dow_order = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+        fig_dow.update_xaxes(categoryorder="array", categoryarray=dow_order, title="Giorno della settimana")
+
+        if not week_df.empty:
+            week_df["giorno_label"] = week_df.index.dayofweek.map(
+                {0: "Lunedì", 1: "Martedì", 2: "Mercoledì", 3: "Giovedì", 4: "Venerdì", 5: "Sabato", 6: "Domenica"}
+            )
+            # Punti (grigio neutro) 
+            #qua decidere se si vogliono visualizzare anche i punti delle rilevazioni effettuate
+            #fig_dow.add_trace(go.Scatter(
+               # x=week_df["giorno_label"], y=week_df["valore"],
+                #mode="markers", name="Rilevazioni", marker=dict(size=9, color="#6C757D")
+            #))
+            # Media per giorno (ARANCIO)
+            daily_mean = week_df.groupby("giorno_label")["valore"].mean().reindex(dow_order)
+            fig_dow.add_trace(go.Scatter(
+                x=dow_order, y=daily_mean.values,
+                mode="lines+markers", name="Media giorno",
+                line=dict(color="#F58518", width=2),
+                connectgaps=True
+            ))
+            # --- Soglia 180 come linea "vera" (cliccabile) ---
+            fig_dow.add_trace(go.Scatter(
+            x=dow_order,
+            y=[180]*len(dow_order),
+            mode="lines",
+            name="Glicemia superiore a 180",
+            line=dict(color="red", dash="dash"),
+            hoverinfo="skip"  # evita tooltip ridondanti
+            ))
+            # --- Fascia 80–130 come area riempita (cliccabile) ---
+            y_low  = [80]*len(dow_order)
+            y_high = [130]*len(dow_order)
+            # base invisibile
+            fig_dow.add_trace(go.Scatter(
+            x=dow_order, y=y_low,
+            mode="lines",
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo="skip",
+            legendgroup="norma"
+            ))
+            fig_dow.add_trace(go.Scatter(
+            x=dow_order, y=y_high,
+            mode="lines",
+            line=dict(width=0),
+            fill="tonexty",
+            fillcolor="rgba(144,238,144,0.20)",  # LightGreen con trasparenza
+            name="Glicemia nella norma (80–130)",
+            hoverinfo="skip",
+            legendgroup="norma"
+            ))
+
+        
+        # Guide cliniche
+        #fig_dow.add_hrect(y0=80, y1=130, fillcolor="LightGreen", opacity=0.20, line_width=0)
+        #fig_dow.add_hline(y=180, line=dict(color='red',dash="dash"), annotation_text="180")
+        #fig_dow.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10), hovermode="x unified")
+
+        #fig_dow.add_trace(go.Scatter(x=[None], y=[None],mode="lines",line=dict(color="red", dash="dash"),
+        #name="Glicemia superiore a 180"))
+        # Trace fittizio solo per la legenda
+        #fig_dow.add_trace(go.Scatter(x=[None], y=[None],mode="markers",marker=dict(size=15,color="LightGreen",
+        #symbol="square"),name="Glicemia nella norma (80–130)"))
+                # =============================
+        # B) Media settimana per settimana (ultime N settimane)
+        # =============================
+        if not weeks_window:
+            weeks_window = 8
+        since = _dt.now() - timedelta(weeks=int(weeks_window))
+        recent = df.loc[df.index >= since].copy()
+
+        # settimane ISO che iniziano il lunedì
+        weekly_mean = recent["valore"].resample("W-MON",label="left", closed="left").mean()
+        #questo l'ho fatto per fare in modo che sia posizionato nella settima giusta e non in quella avanti
+        fig_week = go.Figure()
+        fig_week.update_yaxes(range=[0, 300], title="mg/dL")
+
+        if not weekly_mean.empty:
+            # Etichetta X come intervallo: "dd/mm–dd/mm" (Lun→Dom)
+            x_labels = []
+            for ts in weekly_mean.index:
+                start = ts                   # lunedì
+                end = ts + timedelta(days=6) # venerdì
+                x_labels.append(f"{start.strftime('%d/%m')}–{end.strftime('%d/%m')}")
+            fig_week.add_trace(go.Scatter(x=x_labels, y=weekly_mean.values,mode="lines+markers",
+                name=f"Media settimanale (ultime {weeks_window} sett.)",
+                line=dict(color="#4C78A8", width=2),
+                connectgaps=True    # BLU
+        ))
+        else:
+            fig_week.add_annotation(text="Nessuna settimana con dati nel periodo",
+                                    xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        if not weekly_mean.empty:
+        # Linea soglia 180
+            fig_week.add_trace(go.Scatter(
+            x=x_labels,
+            y=[180]*len(x_labels),
+            mode="lines",
+            name="Glicemia superiore a 180",
+            line=dict(color="red", dash="dash"),
+            hoverinfo="skip"
+        ))
+            # Fascia 80–130 come area riempita
+            y_low  = [80]*len(x_labels)
+            y_high = [130]*len(x_labels)
+
+            fig_week.add_trace(go.Scatter(
+            x=x_labels, y=y_low,
+            mode="lines",
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo="skip",
+            legendgroup="norma"
+        ))
+            fig_week.add_trace(go.Scatter(
+            x=x_labels, y=y_high,
+            mode="lines",
+            line=dict(width=0),
+            fill="tonexty",
+            fillcolor="rgba(144,238,144,0.20)",  # LightGreen trasparente
+            name="Glicemia nella norma (80–130)",
+            hoverinfo="skip",
+            legendgroup="norma"
+        ))
+        else:
+            fig_week.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode="lines",
+            name="Glicemia superiore a 180",
+            line=dict(color="red", dash="dash")
+        ))
+            fig_week.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode="markers",
+            name="Glicemia nella norma (80–130)",
+            marker=dict(size=15, color="LightGreen", symbol="square")
+        )) 
+            
+        #fig_week.add_hrect(y0=80, y1=130, fillcolor="LightGreen", opacity=0.20, line_width=0)
+        #fig_week.add_hline(y=180, line=dict(color='red',dash="dash"), annotation_text="180")
+        #fig_week.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10),
+                               #xaxis_title="Settimana (Lun→Dom)", hovermode="x unified")
+
+                # =============================
+        # C) Media mese per mese (ANNO CORRENTE fisso Gen→Dic) — ROSSO
+        # =============================
+        year = _dt.now().year
+        year_start = pd.Timestamp(year=year, month=1, day=1)
+        # Indice fisso dei 12 mesi dell'anno corrente (start-of-month)
+        idx_months = pd.date_range(start=year_start, periods=12, freq="MS")
+
+        # Filtra i dati all'anno corrente e calcola media per mese (start-of-month)
+        df_year = df.loc[(df.index >= year_start) & (df.index < year_start + pd.offsets.YearEnd(0) + pd.Timedelta(days=1))].copy()
+        monthly_mean = df_year["valore"].resample("MS").mean().reindex(idx_months)  # NaN se mese senza dati
+
+        mesi_it = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
+        x_m = [mesi_it[ts.month - 1] for ts in monthly_mean.index]
+
+        fig_month = go.Figure()
+        fig_month.update_yaxes(range=[0, 300], title="mg/dL")
+        fig_month.add_trace(go.Scatter(
+            x=x_m, y=monthly_mean.values,
+            mode="lines+markers", name=f"Media mensile {year}",
+            line=dict(color="#4C78A8", width=2),  # ROSSO
+            connectgaps=True  # metti True per connettere i mesi anche se mancano dati
+        ))
+
+        # (opzionale) Nota se non ci sono dati in nessun mese
+        if monthly_mean.isna().all():
+            fig_month.add_annotation(text="Nessun dato per l'anno selezionato",
+                                     xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+
+        #fig_month.add_hrect(y0=80, y1=130, fillcolor="LightGreen", opacity=0.20, line_width=0)
+        #fig_month.add_hline(y=180, line=dict(color='red',dash="dash"), annotation_text="180")
+        #fig_month.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10),
+                                #xaxis_title=f"Anno ({year})", hovermode="x unified")
+        fig_month.add_trace(go.Scatter(
+        x=x_m,
+        y=[180]*len(x_m),
+        mode="lines",
+        name="Glicemia superiore a 180",
+        line=dict(color="red", dash="dash"),
+        hoverinfo="skip"
+        ))
+        # --- Fascia 80–130 come area riempita (cliccabile) ---
+        y_low_m  = [80]*len(x_m)
+        y_high_m = [130]*len(x_m)
+        # base invisibile
+        fig_month.add_trace(go.Scatter(
+        x=x_m, y=y_low_m,
+        mode="lines",
+        line=dict(width=0),
+        showlegend=False,
+        hoverinfo="skip",
+        legendgroup="norma"
+        ))
+
+                  # top con fill verso la precedente
+        fig_month.add_trace(go.Scatter(
+        x=x_m, y=y_high_m,
+        mode="lines",
+        line=dict(width=0),
+        fill="tonexty",
+        fillcolor="rgba(144,238,144,0.20)",  # LightGreen trasparente
+        name="Glicemia nella norma (80–130)",
+        hoverinfo="skip",
+        legendgroup="norma"
+        ))     
+        # Imposta background bianco per tutti i grafici
+        for fig in (fig_dow, fig_week, fig_month):
+            fig.update_layout(
+            plot_bgcolor="white",   # area dati (dove ci sono linee e punti)
+            paper_bgcolor="white"   # intera figura, margini inclusi
+        )
+            fig.update_xaxes(
+            showline=True,          # mostra linea asse X
+            linecolor="black",      # colore linea asse
+            linewidth=1             # spessore linea
+        )
+            fig.update_yaxes(
+            showline=True,          # mostra linea asse Y
+            linecolor="black",
+            linewidth=1
+        )    
+        return fig_dow, fig_week, fig_month

@@ -601,3 +601,38 @@ def get_tipo_display(tipo):
         "trattamento": "Trattamento"
     }
     return mapping.get(tipo, tipo)
+
+def get_andamento_glicemico_view():
+    """Card con selettore e 3 grafici: giorno-settimana, media settimanale, media mensile"""
+    return dbc.Card([
+        dbc.CardHeader(
+            html.H5("Andamento glicemico – settimanale e mensile", className="form-label")
+        ),
+        dbc.CardBody([
+            html.H6("A) Media giornaliera (Lun→Dom, settimana corrente)", className="form-label"),
+            dcc.Graph(id="patient-week-dow", config={"displayModeBar": False}),
+            html.Hr(),
+
+            html.H6("B) Media settimana per settimana", className="form-label"),
+            html.Div([
+                html.Label("Finestra settimane", className="form-label"),
+                dcc.Dropdown(
+                    id="weeks-window",
+                    options=[
+                        {"label": "Ultime 4 settimane", "value": 4},
+                        {"label": "Ultime 8 settimane", "value": 8},
+                    ],
+                    value=8,
+                    clearable=False
+                )
+            ], className="mb-3", style={"maxWidth": "320px"}),
+
+            dcc.Graph(id="patient-weekly-avg", config={"displayModeBar": False}),
+            html.Hr(),
+
+            html.H6("C) Media mese per mese (Gen→Dic)", className="form-label"),
+            dcc.Graph(id="patient-monthly-avg", config={"displayModeBar": False}),
+
+            html.Div("Scala 0–300 mg/dL", className="mt-2 text-muted")
+        ])
+    ], className="mb-4")
