@@ -1487,5 +1487,67 @@ def get_paziente_gia_seguito_message(paziente_nome):
     ]
     
     return dbc.Alert(children, color="info", dismissable=True)
+#parte nuova
+#Anamento glicemico  per selezionare paziente
+def get_andamento_glicemico_medico_view():
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                html.H5("Andamento glicemico –settimanale e mensile", className="doctor-title mb-0",style={"fontWeight": "400"})
+            ),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        [
+                            html.Label("Seleziona paziente", className="form-label"),
+                            dcc.Dropdown(
+                                id="doctor-patient-selector",
+                                options=[],
+                                placeholder="Cognome Nome (username)",
+                                clearable=False,
+                                style={"maxWidth": "520px"},
+                                className="form-control"
+                            ),
+                        ],
+                        className="mb-4",
+                        
+                    ),
 
-    
+                    html.H6("A) Media giornaliera (Lun→Dom, settimana corrente)", className="form-label"),
+                    dcc.Graph(id="doctor-week-dow", config={"displayModeBar": False}),
+                    html.Hr(),
+
+                    html.H6("B) Media settimana per settimana", className="form-label"),
+                    html.Div(
+                        [
+                            html.Label("Finestra settimane", className="form-label"),
+                            dcc.Dropdown(
+                                id="weeks-window-medico",
+                                options=[
+                                    {"label": "Ultime 4 settimane", "value": 4},
+                                    {"label": "Ultime 8 settimane", "value": 8},
+                                ],
+                                value=8,
+                                clearable=False,
+                                style={"maxWidth": "320px"},
+                                className="form-control"
+                            ),
+                        ],
+                        className="mb-3",
+                    ),
+                    dcc.Graph(id="doctor-weekly-avg", config={"displayModeBar": False}),
+                    html.Hr(),
+
+                    html.H6("C) Media mese per mese (Gen→Dic)", className="form-label"),
+                    dcc.Graph(id="doctor-monthly-avg", config={"displayModeBar": False}),
+
+                    html.Div("Scala 0–300 mg/dL", className="mt-2 text-muted"),
+                ]
+            ),
+        ],
+        className="mb-4",
+        style={#questo per forzare e non fare vedere lo sfondo verde che si muove, dava noia :)
+            "backgroundColor": "white",   # sfondo bianco pieno
+            "backdropFilter": "none"
+            }          
+    )

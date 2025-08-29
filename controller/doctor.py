@@ -7,6 +7,9 @@ from flask_login import current_user
 from dash import html
 from datetime import datetime
 from pony.orm import db_session, commit, select
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import timedelta, datetime as _dt
 from model.terapia import Terapia
 from model.medico import Medico
 from model.paziente import Paziente
@@ -22,7 +25,8 @@ from view.doctor import (
     get_edit_terapia_form,
     get_terapia_modify_success_message,
     get_terapie_list_for_delete,
-    get_terapia_delete_success_message
+    get_terapia_delete_success_message,
+    get_andamento_glicemico_medico_view 
 )
 
 
@@ -1035,4 +1039,230 @@ def register_doctor_callbacks(app):
             from view.doctor import get_segui_paziente_form
             return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti)
         return dash.no_update
+    #CALLBACK"Andamenti glicemici" per il medico
+    @app.callback(
+        Output("doctor-content", "children", allow_duplicate=True),
+        Input("btn-statistiche", "n_clicks"),
+        prevent_initial_call=True
+    )
+    @db_session
+    def show_andamenti_glicemici_medico(n_clicks):
+        if not n_clicks:
+            return dash.no_update
+        return get_andamento_glicemico_medico_view()
+    
+    @app.callback(
+        Output("doctor-patient-selector", "options"),
+        Input("doctor-content", "children"),
+        prevent_initial_call=False
+    )
+    @db_session
+    def load_patients_options(_children):
+    # Se vuoi filtrare per i soli pazienti seguiti dal medico:
+    # medico = Medico.get(username=current_user.username)
+    # patients = list(medico.patients) if medico else []
+        patients = list(Paziente.select())
+        options = []
+        for p in patients:
+            cognome = (p.surname or "").strip()
+            nome    = (p.name or "").strip()
+            label = f"{cognome} {nome} ({p.username})".strip()
+            label = " ".join(label.split())
+            options.append({"label": label, "value": p.username})
+        return options
+
+    @app.callback(
+    Output("doctor-week-dow", "figure"),
+    Output("doctor-weekly-avg", "figure"),
+    Output("doctor-monthly-avg", "figure"),
+    Input("doctor-patient-selector", "value"),
+    Input("weeks-window-medico", "value"),
+    prevent_initial_call=True
+    )
+
+    @db_session
+    def render_week_month_charts_medico(selected_username, weeks_window):
+
+        def empty_fig(msg):
+            f = go.Figure()
+            f.update_yaxes(range=[0, 300], title="mg/dL")
+            f.add_annotation(text=msg, xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+            f.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10),plot_bgcolor="white", paper_bgcolor="white", hovermode="x unified")
+            f.update_xaxes(showline=True, linecolor="black", linewidth=1)
+            f.update_yaxes(showline=True, linecolor="black", linewidth=1)
+            return f
         
+        if not selected_username:
+            ef = empty_fig("Seleziona un paziente")
+            return ef, ef, ef
+    
+        paz = Paziente.get(username=selected_username)
+        all_meas = list(paz.rilevazione) if paz else []
+
+        if not all_meas:
+            ef = empty_fig("Nessuna glicemia registrata")
+            return ef, ef, ef
+    
+        df = pd.DataFrame(
+            [(m.data_ora, m.valore) for m in all_meas],
+            columns=["data", "valore"]
+        ).set_index("data").sort_index()
+
+    
+        # A) Giorni della settimana (settimana corrente)
+        today = _dt.now()
+        start_week = (today - timedelta(days=today.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+        )  # Lunedì
+        end_week = start_week + timedelta(days=7)
+
+        week_df = df.loc[(df.index >= start_week) & (df.index < end_week)].copy()
+
+        fig_dow = go.Figure()
+        fig_dow.update_yaxes(range=[0, 300], title="mg/dL")
+
+        dow_order = ["Lunedì", "Martedì", "Mercoledì", "Giovedì",
+                 "Venerdì", "Sabato", "Domenica"]
+        fig_dow.update_xaxes(categoryorder="array", categoryarray=dow_order,
+                         title="Giorno della settimana")
+
+        if not week_df.empty:
+            week_df["giorno_label"] = week_df.index.dayofweek.map({
+                0: "Lunedì", 1: "Martedì", 2: "Mercoledì",
+                3: "Giovedì", 4: "Venerdì", 5: "Sabato", 6: "Domenica"
+            })
+            daily_mean = week_df.groupby("giorno_label")["valore"].mean().reindex(dow_order)
+
+            fig_dow.add_trace(go.Scatter(
+                x=dow_order, y=daily_mean.values,
+                mode="lines+markers", name="Media giorno",
+                line=dict(color="#F58518", width=2),
+                connectgaps=True
+            ))
+
+            # Soglia 180 (cliccabile)
+            fig_dow.add_trace(go.Scatter(
+                x=dow_order, y=[180]*len(dow_order),
+                mode="lines", name="Glicemia superiore a 180",
+                line=dict(color="red", dash="dash"),
+                hoverinfo="skip"
+            ))
+
+            # Fascia 80–130 (cliccabile)
+            y_low, y_high = [80]*len(dow_order), [130]*len(dow_order)
+            fig_dow.add_trace(go.Scatter(
+                x=dow_order, y=y_low, mode="lines",
+                line=dict(width=0), showlegend=False, hoverinfo="skip", legendgroup="norma"
+            ))
+            fig_dow.add_trace(go.Scatter(
+                x=dow_order, y=y_high, mode="lines",
+                line=dict(width=0), fill="tonexty",
+                fillcolor="rgba(144,238,144,0.20)",
+                name="Glicemia nella norma (80–130)",
+                hoverinfo="skip", legendgroup="norma"
+            ))
+        else:
+            fig_dow.add_annotation(
+                text="Nessun dato nella settimana corrente",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
+
+        
+  #B) Media settimana per settimana (ultime N settimane)
+        weeks_window = weeks_window or 8
+        since = _dt.now() - timedelta(weeks=int(weeks_window))
+        recent = df.loc[df.index >= since].copy()
+        weekly_mean = recent["valore"].resample("W-MON", label="left", closed="left").mean()
+        fig_week = go.Figure()
+        fig_week.update_yaxes(range=[0, 300], title="mg/dL")
+
+        if not weekly_mean.empty:
+            x_labels = [(ts.strftime("%d/%m")+"–"+(ts+timedelta(days=6)).strftime("%d/%m")) for ts in weekly_mean.index]
+
+            # media settimanale
+            fig_week.add_trace(go.Scatter(
+                x=x_labels, y=weekly_mean.values,
+                mode="lines+markers",
+                name=f"Media settimanale (ultime {weeks_window} sett.)",
+                line=dict(color="#4C78A8", width=2),
+                connectgaps=True
+            ))
+            # Soglia 180
+            fig_week.add_trace(go.Scatter(
+                x=x_labels, y=[180]*len(x_labels),
+                mode="lines", name="Glicemia superiore a 180",
+                line=dict(color="red", dash="dash"), hoverinfo="skip"
+            ))
+            # Fascia 80–130
+            y_low, y_high = [80]*len(x_labels), [130]*len(x_labels)
+            fig_week.add_trace(go.Scatter(
+                x=x_labels, y=y_low, mode="lines",
+                line=dict(width=0), showlegend=False, hoverinfo="skip", legendgroup="norma"
+            ))
+            fig_week.add_trace(go.Scatter(
+                x=x_labels, y=y_high, mode="lines",
+                line=dict(width=0), fill="tonexty",
+                fillcolor="rgba(144,238,144,0.20)",
+                name="Glicemia nella norma (80–130)",
+                hoverinfo="skip", legendgroup="norma"
+            ))
+        else:
+            fig_week.add_annotation(text="Nessuna settimana con dati nel periodo",
+                                    xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        fig_week.update_layout(xaxis_title="Settimana (Lun→Dom)")
+    ## ---------- C) Media mese per mese (anno corrente)
+        year = _dt.now().year
+        year_start = pd.Timestamp(year=year, month=1, day=1)
+        idx_months = pd.date_range(start=year_start, periods=12, freq="MS")
+        df_year = df.loc[(df.index >= year_start) & (df.index < year_start + pd.offsets.YearEnd(0) + pd.Timedelta(days=1))].copy()
+        monthly_mean = df_year["valore"].resample("MS").mean().reindex(idx_months)
+
+        mesi_it = ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"]
+        x_m = [mesi_it[ts.month-1] for ts in monthly_mean.index]
+
+        fig_month = go.Figure()
+        fig_month.update_yaxes(range=[0, 300], title="mg/dL")
+
+        fig_month.add_trace(go.Scatter(
+            x=x_m, y=monthly_mean.values,
+            mode="lines+markers", name=f"Media mensile {year}",
+            line=dict(color="#4C78A8", width=2),
+            connectgaps=True
+        ))
+        if monthly_mean.isna().all():
+            fig_month.add_annotation(text="Nessun dato per l'anno selezionato",
+                                 xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+    # Soglia 180
+        fig_month.add_trace(go.Scatter(
+            x=x_m, y=[180]*len(x_m),
+            mode="lines", name="Glicemia superiore a 180",
+            line=dict(color="red", dash="dash"), hoverinfo="skip"
+    ))
+    # Fascia 80–130
+        y_low_m, y_high_m = [80]*len(x_m), [130]*len(x_m)
+        fig_month.add_trace(go.Scatter(
+            x=x_m, y=y_low_m, mode="lines",
+            line=dict(width=0), showlegend=False, hoverinfo="skip", legendgroup="norma"
+    ))
+        fig_month.add_trace(go.Scatter(
+            x=x_m, y=y_high_m, mode="lines",
+            line=dict(width=0), fill="tonexty",
+            fillcolor="rgba(144,238,144,0.20)",
+            name="Glicemia nella norma (80–130)",
+            hoverinfo="skip", legendgroup="norma"
+    ))
+    # --- stile comune
+        for fig in (fig_dow, fig_week, fig_month):
+            fig.update_layout(
+                height=360, 
+                margin=dict(l=10, r=10, t=30, b=10),
+                plot_bgcolor="white",
+                paper_bgcolor="white", 
+                hovermode="x unified"
+                )
+            fig.update_xaxes(showline=True, linecolor="black", linewidth=1)
+            fig.update_yaxes(showline=True, linecolor="black", linewidth=1)
+
+        fig_month.update_layout(xaxis_title=f"Anno ({year})")
+        return fig_dow, fig_week, fig_month
