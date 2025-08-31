@@ -1,6 +1,6 @@
 # model/paziente.py
 from datetime import datetime
-from pony.orm import Optional, Set
+from pony.orm import Optional, Set, Required
 from .user import User
 
 # Define the paziente entity
@@ -17,6 +17,7 @@ class Paziente(User):
     info_aggiornate = Optional(str)
 
     # Relazione many-to-many con i medici
+    medico_riferimento = Optional("Medico", reverse="pazienti_riferimento")
     doctors = Set("Medico", reverse="patients")
     rilevazione = Set("Glicemia", reverse="paziente")
     assunzione = Set("Assunzione", reverse="paziente")

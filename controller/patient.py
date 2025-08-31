@@ -3,28 +3,33 @@
 import dash
 from dash.dependencies import Input, Output, State
 from flask_login import current_user
-from dash import html
-from datetime import datetime
+from dash import html, dcc
+from datetime import datetime, timedelta
 from pony.orm import db_session, commit
+import pandas as pd
+import plotly.graph_objects as go
+import dash_bootstrap_components as dbc
+
 from model.glicemia import Glicemia
 from model.assunzione import Assunzione
 from model.paziente import Paziente
 from model.sintomi import Sintomi
-from view.patient import (
-    get_glicemia_form, 
-    get_success_message, 
-    get_error_message,
-    get_nuova_assunzione_form, 
-    get_assunzione_success_message,
-    get_miei_dati_view, 
-    get_andamento_glicemico_view,
-    get_sintomi_trattamenti_form,
-    get_sintomi_success_message
-)
+from model.terapia import Terapia
 
+from view.patient import *
+
+# callback principale
 
 def register_patient_callbacks(app):
     """Registra tutti i callback per i pazienti"""
+    _register_form_callbacks(app)
+    _register_data_callbacks(app)
+    _register_chart_callbacks(app)
+    _register_navigation_callbacks(app)
+
+
+def _register_form_callbacks(app):
+    """Registra i callbacks relativi ai form"""
     
     @app.callback(
         Output('patient-content', 'children'),
@@ -32,7 +37,6 @@ def register_patient_callbacks(app):
         prevent_initial_call=True
     )
     def show_glicemia_form(n_clicks):
-        """Mostra il form per registrare la glicemia"""
         if n_clicks:
             return get_glicemia_form()
         return dash.no_update
@@ -43,10 +47,7 @@ def register_patient_callbacks(app):
     )
     def toggle_due_ore_pasto(momento_pasto):
         """Mostra/nasconde il campo due ore in base al momento del pasto"""
-        if momento_pasto == 'dopo_pasto':
-            return {'display': 'block'}
-        else:
-            return {'display': 'none'}
+        return {'display': 'block' if momento_pasto == 'dopo_pasto' else 'none'}
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
@@ -61,42 +62,25 @@ def register_patient_callbacks(app):
     )
     @db_session
     def save_glicemia_measurement(n_clicks, valore, data_misurazione, ora, momento_pasto, note, due_ore_pasto):
-        """Salva la misurazione della glicemia nel database"""
         if not n_clicks:
             return dash.no_update
         
-        if not valore or not data_misurazione or not ora or not momento_pasto:
-            return get_error_message("Per favore compila tutti i campi obbligatori e inserisci un valore glicemico valido!")
-        
-        try:
-            data_inserita = datetime.strptime(data_misurazione, '%Y-%m-%d').date()
-            data_oggi = datetime.now().date()
-            data_minima = datetime(1900, 1, 1).date()
-            
-            if data_inserita > data_oggi:
-                return get_error_message("La data di misurazione non può essere nel futuro!")
-            
-            if data_inserita < data_minima:
-                return get_error_message("La data di misurazione non può essere precedente al 1900!")
-                
-        except ValueError:
-            return get_error_message("Formato data non valido!")
-        
-        if momento_pasto == 'dopo_pasto' and due_ore_pasto is None:
-            return get_error_message("Per favore specifica se sono passate almeno due ore dal pasto!")
+        # Validazione input
+        validation_error = _validate_glicemia_input(valore, data_misurazione, ora, momento_pasto, due_ore_pasto)
+        if validation_error:
+            return validation_error
         
         try:
             paziente = Paziente.get(username=current_user.username)
             if not paziente:
                 return get_error_message("Errore: paziente non trovato!")
             
-            data_ora = datetime.combine(
-                data_inserita,
-                datetime.strptime(ora, '%H:%M').time()
-            )
-            
+            # Creazione oggetto datetime
+            data_inserita = datetime.strptime(data_misurazione, '%Y-%m-%d').date()
+            data_ora = datetime.combine(data_inserita, datetime.strptime(ora, '%H:%M').time())
             campo_due_ore = due_ore_pasto if momento_pasto == 'dopo_pasto' else None
             
+            # Salvataggio
             misurazione = Glicemia(
                 paziente=paziente,
                 valore=float(valore),
@@ -109,32 +93,8 @@ def register_patient_callbacks(app):
             
             return get_success_message(valore, data_ora, momento_pasto, due_ore_pasto)
             
-        except ValueError as e:
-            return get_error_message(f"Errore nei dati inseriti: {str(e)}")
         except Exception as e:
             return get_error_message(f"Errore durante il salvataggio: {str(e)}")
-
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
-        Input('btn-nuova-misurazione', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def show_new_glicemia_form(n_clicks):
-        """Mostra un nuovo form glicemia dopo aver salvato"""
-        if n_clicks:
-            return get_glicemia_form()
-        return dash.no_update
-
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
-        Input('btn-annulla-glicemia', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def cancel_glicemia_form(n_clicks):
-        """Nasconde il form glicemia quando si clicca annulla"""
-        if n_clicks:
-            return html.Div()
-        return dash.no_update
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
@@ -142,7 +102,6 @@ def register_patient_callbacks(app):
         prevent_initial_call=True
     )
     def show_assunzione_form(n_clicks):
-        """Mostra il form per registrare una nuova assunzione"""
         if n_clicks:
             return get_nuova_assunzione_form()
         return dash.no_update
@@ -159,52 +118,25 @@ def register_patient_callbacks(app):
     )
     @db_session
     def save_assunzione(n_clicks, nome_farmaco, dosaggio, data_assunzione, ora, note):
-        """Salva l'assunzione di farmaco nel database"""
         if not n_clicks:
             return dash.no_update
         
-        # Validazione campi obbligatori
-        if not nome_farmaco or not dosaggio or not data_assunzione or not ora:
-            return get_error_message("Per favore compila tutti i campi obbligatori!")
-        
-        # Validazione lunghezza campi
-        if len(nome_farmaco.strip()) < 2:
-            return get_error_message("Il nome del farmaco deve essere di almeno 2 caratteri!")
-        
-        if len(dosaggio.strip()) < 1:
-            return get_error_message("Il dosaggio non può essere vuoto!")
-        
-        # Validazione date
-        try:
-            data_inserita = datetime.strptime(data_assunzione, '%Y-%m-%d').date()
-            data_oggi = datetime.now().date()
-            data_minima = datetime(1900, 1, 1).date()
-            
-            if data_inserita > data_oggi:
-                return get_error_message("La data di assunzione non può essere nel futuro!")
-            
-            if data_inserita < data_minima:
-                return get_error_message("La data di assunzione non può essere precedente al 1900!")
-                
-        except ValueError:
-            return get_error_message("Formato data non valido!")
-        
-        # Validazione ora
-        try:
-            ora_obj = datetime.strptime(ora, '%H:%M').time()
-        except ValueError:
-            return get_error_message("Formato ora non valido!")
+        # Validazione input
+        validation_error = _validate_assunzione_input(nome_farmaco, dosaggio, data_assunzione, ora)
+        if validation_error:
+            return validation_error
         
         try:
-            # Trova il paziente corrente
             paziente = Paziente.get(username=current_user.username)
             if not paziente:
                 return get_error_message("Errore: paziente non trovato!")
             
-            # Combina data e ora
+            # Creazione datetime
+            data_inserita = datetime.strptime(data_assunzione, '%Y-%m-%d').date()
+            ora_obj = datetime.strptime(ora, '%H:%M').time()
             data_ora = datetime.combine(data_inserita, ora_obj)
             
-            # Crea e salva l'assunzione
+            # Salvataggio
             assunzione = Assunzione(
                 paziente=paziente,
                 nome_farmaco=nome_farmaco.strip(),
@@ -221,33 +153,10 @@ def register_patient_callbacks(app):
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
-        Input('btn-nuova-assunzione-bis', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def show_new_assunzione_form(n_clicks):
-        """Mostra un nuovo form assunzione dopo aver salvato"""
-        if n_clicks:
-            return get_nuova_assunzione_form()
-        return dash.no_update
-
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
-        Input('btn-annulla-assunzione', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def cancel_assunzione_form(n_clicks):
-        """Nasconde il form assunzione quando si clicca annulla"""
-        if n_clicks:
-            return html.Div()
-        return dash.no_update
-
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
         Input('btn-sintomi-trattamenti', 'n_clicks'),
         prevent_initial_call=True
     )
     def show_sintomi_form(n_clicks):
-        """Mostra il form per registrare sintomi e trattamenti"""
         if n_clicks:
             return get_sintomi_trattamenti_form()
         return dash.no_update
@@ -257,11 +166,8 @@ def register_patient_callbacks(app):
         Input('select-tipo-sintomo', 'value')
     )
     def toggle_campi_sintomi(tipo_sintomo):
-        """Mostra/nasconde i campi intensità e frequenza per i sintomi"""
-        if tipo_sintomo == 'sintomo':
-            return {'display': 'block'}
-        else:
-            return {'display': 'none'}
+        """Mostra/nasconde i campi frequenza per i sintomi"""
+        return {'display': 'block' if tipo_sintomo == 'sintomo' else 'none'}
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
@@ -276,58 +182,26 @@ def register_patient_callbacks(app):
     )
     @db_session
     def save_sintomo(n_clicks, tipo, descrizione, data_inizio, data_fine, frequenza, note):
-        """Salva il sintomo/patologia/trattamento nel database"""
         if not n_clicks:
             return dash.no_update
         
-        # Validazione campi obbligatori
-        if not tipo or not descrizione or not data_inizio:
-            return get_error_message("Per favore compila tutti i campi obbligatori!")
-        
-        if tipo == 'sintomo' and not frequenza:
-            return get_error_message("Per favore seleziona la frequenza del sintomo!")
-        
-        # Validazione lunghezza descrizione
-        if len(descrizione.strip()) < 2:
-            return get_error_message("La descrizione deve essere di almeno 2 caratteri!")
-        
-        # Validazione date
-        try:
-            data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d').date()
-            data_oggi = datetime.now().date()
-            data_minima = datetime(1900, 1, 1).date()
-            
-            if data_inizio_obj > data_oggi:
-                return get_error_message("La data di inizio non può essere nel futuro!")
-            
-            if data_inizio_obj < data_minima:
-                return get_error_message("La data di inizio non può essere precedente al 1900!")
-                
-        except ValueError:
-            return get_error_message("Formato data inizio non valido!")
-        
-        # Validazione data fine se presente
-        data_fine_obj = None
-        if data_fine and data_fine.strip():
-            try:
-                data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d').date()
-                
-                if data_fine_obj > data_oggi:
-                    return get_error_message("La data di fine non può essere nel futuro!")
-                
-                if data_fine_obj < data_inizio_obj:
-                    return get_error_message("La data di fine non può essere precedente alla data di inizio!")
-                    
-            except ValueError:
-                return get_error_message("Formato data fine non valido!")
+        # Validazione input
+        validation_error = _validate_sintomi_input(tipo, descrizione, data_inizio, data_fine, frequenza)
+        if validation_error:
+            return validation_error
         
         try:
-            # Trova il paziente corrente
             paziente = Paziente.get(username=current_user.username)
             if not paziente:
                 return get_error_message("Errore: paziente non trovato!")
             
-            # Crea e salva il sintomo/patologia/trattamento
+            # Conversione date
+            data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d').date()
+            data_fine_obj = None
+            if data_fine and data_fine.strip():
+                data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d').date()
+            
+            # Salvataggio
             sintomo = Sintomi(
                 paziente=paziente,
                 tipo=tipo,
@@ -343,36 +217,427 @@ def register_patient_callbacks(app):
             
         except Exception as e:
             return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+        
+    _register_form_actions(app)
 
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
-        Input('btn-nuovo-sintomo', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def show_new_sintomo_form(n_clicks):
-        """Mostra un nuovo form sintomi dopo aver salvato"""
-        if n_clicks:
-            return get_sintomi_trattamenti_form()
-        return dash.no_update
 
-    @app.callback(
-        Output('patient-content', 'children', allow_duplicate=True),
-        Input('btn-annulla-sintomo', 'n_clicks'),
-        prevent_initial_call=True
-    )
-    def cancel_sintomo_form(n_clicks):
-        """Nasconde il form sintomi quando si clicca annulla"""
-        if n_clicks:
-            return html.Div()
-        return dash.no_update
+def _register_form_actions(app):
+    """Registra i callbacks per azioni sui form (annulla, nuova registrazione)"""
+    
+    # Callbacks per pulsanti "Nuova registrazione"
+    for btn_id, form_func in [
+        ('btn-nuova-misurazione', get_glicemia_form),
+        ('btn-nuova-assunzione-bis', get_nuova_assunzione_form),
+        ('btn-nuovo-sintomo', get_sintomi_trattamenti_form)
+    ]:
+        @app.callback(
+            Output('patient-content', 'children', allow_duplicate=True),
+            Input(btn_id, 'n_clicks'),
+            prevent_initial_call=True
+        )
+        def show_new_form(n_clicks, form=form_func):
+            if n_clicks:
+                return form()
+            return dash.no_update
+    
+    # Callbacks per pulsanti "Annulla"
+    for btn_id in ['btn-annulla-glicemia', 'btn-annulla-assunzione', 'btn-annulla-sintomo']:
+        @app.callback(
+            Output('patient-content', 'children', allow_duplicate=True),
+            Input(btn_id, 'n_clicks'),
+            prevent_initial_call=True
+        )
+        def cancel_form(n_clicks):
+            if n_clicks:
+                 return get_patient_welcome_content()  # o come hai chiamato la funzione
+            return dash.no_update
 
+
+# visualizzazione
+
+def _register_data_callbacks(app):
+    """Registra i callbacks per visualizzazione dati"""
+    
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
         Input('btn-miei-dati', 'n_clicks'),
         prevent_initial_call=True
     )
     def show_miei_dati(n_clicks):
-        """Mostra la vista dei dati personali"""
         if n_clicks:
             return get_miei_dati_view()
         return dash.no_update
+    
+    @app.callback(
+        Output('miei-dati-content', 'children'),
+        Input('patient-content', 'children'),
+        prevent_initial_call=False
+    )
+    @db_session
+    def load_patient_personal_data(children):
+        if not children or not isinstance(children, dict):
+            return dash.no_update
+        
+        try:
+            paziente = Paziente.get(username=current_user.username)
+            if not paziente:
+                return get_error_message("Errore: paziente non trovato!")
+            return get_patient_personal_data_display(paziente)
+        except Exception as e:
+            return get_error_message(f"Errore durante il caricamento dei dati: {str(e)}")
+
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-terapie', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def show_mie_terapie(n_clicks):
+        if n_clicks:
+            return get_mie_terapie_view()
+        return dash.no_update
+
+    @app.callback(
+        Output('mie-terapie-content', 'children'),
+        Input('patient-content', 'children'),
+        prevent_initial_call=False
+    )
+    @db_session
+    def load_patient_therapies(children):
+        if not children:
+            return dash.no_update
+        
+        try:
+            children_str = str(children)
+            if 'mie-terapie-content' not in children_str:
+                return dash.no_update
+        except:
+            return dash.no_update
+        
+        try:
+            paziente = Paziente.get(username=current_user.username)
+            if not paziente:
+                return get_error_message("Errore: paziente non trovato!")
+            
+            terapie = list(paziente.terapies.order_by(Terapia.data_inizio.desc()))
+            return get_patient_therapies_display(terapie)
+        except Exception as e:
+            return get_error_message(f"Errore durante il caricamento delle terapie: {str(e)}")
+
+
+# grafici
+
+def _register_chart_callbacks(app):
+    """Registra i callbacks per i grafici dell'andamento glicemico"""
+    
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-andamento-glicemico', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def show_andamento_glicemico(n_clicks):
+        if n_clicks:
+            return get_andamento_glicemico_view()
+        return dash.no_update
+
+    @app.callback(
+        Output("patient-week-dow", "figure"),
+        Output("patient-weekly-avg", "figure"),
+        Output("patient-monthly-avg", "figure"),
+        Input("patient-content", "children"),
+        Input("weeks-window", "value"),
+        prevent_initial_call=False
+    )
+    @db_session
+    def render_week_month_charts(_children, weeks_window):
+        """Genera i 3 grafici: giorni settimana, settimanale, mensile"""
+        
+        paziente = Paziente.get(username=current_user.username)
+        if not paziente:
+            return _create_empty_figures()
+        
+        # Recupera misurazioni
+        all_meas = list(paziente.rilevazione)
+        if not all_meas:
+            return _create_empty_figures("Nessuna glicemia registrata")
+        
+        # Crea DataFrame base
+        df = pd.DataFrame([{"data": g.data_ora, "valore": g.valore} for g in all_meas])
+        df = df.sort_values("data")
+        df["data"] = pd.to_datetime(df["data"])
+        df.set_index("data", inplace=True)
+        
+        # Genera i tre grafici
+        fig_dow = _create_weekly_dow_chart(df)
+        fig_week = _create_weekly_avg_chart(df, weeks_window or 8)
+        fig_month = _create_monthly_avg_chart(df)
+        
+        return fig_dow, fig_week, fig_month
+
+
+def _create_weekly_dow_chart(df):
+    """Crea grafico giorni della settimana (settimana corrente)"""
+    today = datetime.now()
+    start_week = (today - timedelta(days=today.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    end_week = start_week + timedelta(days=7)
+    
+    week_df = df.loc[(df.index >= start_week) & (df.index < end_week)].copy()
+    
+    fig = go.Figure()
+    fig.update_yaxes(range=[0, 300], title="mg/dL")
+    
+    dow_order = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+    fig.update_xaxes(categoryorder="array", categoryarray=dow_order, title="Giorno della settimana")
+    
+    if not week_df.empty:
+        week_df["giorno_label"] = week_df.index.dayofweek.map({
+            i: dow_order[i] for i in range(7)
+        })
+        
+        # Media per giorno
+        daily_mean = week_df.groupby("giorno_label")["valore"].mean().reindex(dow_order)
+        fig.add_trace(go.Scatter(
+            x=dow_order, y=daily_mean.values,
+            mode="lines+markers", name="Media giorno",
+            line=dict(color="#F58518", width=2), connectgaps=True
+        ))
+        
+        # Soglie cliniche
+        _add_clinical_thresholds(fig, dow_order)
+    
+    _apply_chart_styling(fig)
+    return fig
+
+
+def _create_weekly_avg_chart(df, weeks_window):
+    """Crea grafico media settimanale"""
+    since = datetime.now() - timedelta(weeks=int(weeks_window))
+    recent = df.loc[df.index >= since].copy()
+    
+    # Media settimanale (lunedì come inizio settimana)
+    weekly_mean = recent["valore"].resample("W-MON", label="left", closed="left").mean()
+    
+    fig = go.Figure()
+    fig.update_yaxes(range=[0, 300], title="mg/dL")
+    
+    if not weekly_mean.empty:
+        # Etichette asse X
+        x_labels = []
+        for ts in weekly_mean.index:
+            start = ts
+            end = ts + timedelta(days=6)
+            x_labels.append(f"{start.strftime('%d/%m')}—{end.strftime('%d/%m')}")
+        
+        fig.add_trace(go.Scatter(
+            x=x_labels, y=weekly_mean.values,
+            mode="lines+markers",
+            name=f"Media settimanale (ultime {weeks_window} sett.)",
+            line=dict(color="#4C78A8", width=2), connectgaps=True
+        ))
+        
+        # Soglie cliniche
+        _add_clinical_thresholds(fig, x_labels)
+    else:
+        fig.add_annotation(text="Nessuna settimana con dati nel periodo",
+                          xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+    
+    _apply_chart_styling(fig)
+    return fig
+
+
+def _create_monthly_avg_chart(df):
+    """Crea grafico media mensile (anno corrente)"""
+    year = datetime.now().year
+    year_start = pd.Timestamp(year=year, month=1, day=1)
+    
+    # Indice fisso 12 mesi
+    idx_months = pd.date_range(start=year_start, periods=12, freq="MS")
+    
+    # Filtra anno corrente e calcola media mensile
+    df_year = df.loc[(df.index >= year_start) & 
+                     (df.index < year_start + pd.offsets.YearEnd(0) + pd.Timedelta(days=1))].copy()
+    monthly_mean = df_year["valore"].resample("MS").mean().reindex(idx_months)
+    
+    mesi_it = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
+               "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
+    x_m = [mesi_it[ts.month - 1] for ts in monthly_mean.index]
+    
+    fig = go.Figure()
+    fig.update_yaxes(range=[0, 300], title="mg/dL")
+    fig.add_trace(go.Scatter(
+        x=x_m, y=monthly_mean.values,
+        mode="lines+markers", name=f"Media mensile {year}",
+        line=dict(color="#4C78A8", width=2), connectgaps=True
+    ))
+    
+    if monthly_mean.isna().all():
+        fig.add_annotation(text="Nessun dato per l'anno selezionato",
+                          xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+    
+    # Soglie cliniche
+    _add_clinical_thresholds(fig, x_m)
+    _apply_chart_styling(fig)
+    return fig
+
+def _register_navigation_callbacks(app):
+    """Registra i callbacks per la navigazione"""
+    
+    # Pulsanti "Torna al Menu"
+    for btn_id in ['btn-torna-menu-paziente', 'btn-torna-menu-grafici', 'btn-torna-menu-terapie-paziente']:
+        @app.callback(
+            Output('patient-content', 'children', allow_duplicate=True),
+            Input(btn_id, 'n_clicks'),
+            prevent_initial_call=True
+        )
+        def back_to_patient_menu(n_clicks):
+            if n_clicks:
+                 return get_patient_welcome_content()
+            return dash.no_update
+
+
+def _validate_glicemia_input(valore, data_misurazione, ora, momento_pasto, due_ore_pasto):
+    """Valida input form glicemia"""
+    if not valore or not data_misurazione or not ora or not momento_pasto:
+        return get_error_message("Per favore compila tutti i campi obbligatori!")
+    
+    # Validazione data
+    try:
+        data_inserita = datetime.strptime(data_misurazione, '%Y-%m-%d').date()
+        data_oggi = datetime.now().date()
+        data_minima = datetime(1900, 1, 1).date()
+        
+        if data_inserita > data_oggi:
+            return get_error_message("La data di misurazione non può essere nel futuro!")
+        if data_inserita < data_minima:
+            return get_error_message("La data di misurazione non può essere precedente al 1900!")
+    except ValueError:
+        return get_error_message("Formato data non valido!")
+    
+    # Validazione campo due ore dopo pasto
+    if momento_pasto == 'dopo_pasto' and due_ore_pasto is None:
+        return get_error_message("Per favore specifica se sono passate almeno due ore dal pasto!")
+    
+    return None
+
+
+def _validate_assunzione_input(nome_farmaco, dosaggio, data_assunzione, ora):
+    """Valida input form assunzione"""
+    if not nome_farmaco or not dosaggio or not data_assunzione or not ora:
+        return get_error_message("Per favore compila tutti i campi obbligatori!")
+    
+    if len(nome_farmaco.strip()) < 2:
+        return get_error_message("Il nome del farmaco deve essere di almeno 2 caratteri!")
+    
+    if len(dosaggio.strip()) < 1:
+        return get_error_message("Il dosaggio non può essere vuoto!")
+    
+    # Validazione data
+    try:
+        data_inserita = datetime.strptime(data_assunzione, '%Y-%m-%d').date()
+        data_oggi = datetime.now().date()
+        data_minima = datetime(1900, 1, 1).date()
+        
+        if data_inserita > data_oggi:
+            return get_error_message("La data di assunzione non può essere nel futuro!")
+        if data_inserita < data_minima:
+            return get_error_message("La data di assunzione non può essere precedente al 1900!")
+    except ValueError:
+        return get_error_message("Formato data non valido!")
+    
+    # Validazione ora
+    try:
+        datetime.strptime(ora, '%H:%M').time()
+    except ValueError:
+        return get_error_message("Formato ora non valido!")
+    
+    return None
+
+
+def _validate_sintomi_input(tipo, descrizione, data_inizio, data_fine, frequenza):
+    """Valida input form sintomi"""
+    if not tipo or not descrizione or not data_inizio:
+        return get_error_message("Per favore compila tutti i campi obbligatori!")
+    
+    if tipo == 'sintomo' and not frequenza:
+        return get_error_message("Per favore seleziona la frequenza del sintomo!")
+    
+    if len(descrizione.strip()) < 2:
+        return get_error_message("La descrizione deve essere di almeno 2 caratteri!")
+    
+    # Validazione date
+    try:
+        data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d').date()
+        data_oggi = datetime.now().date()
+        data_minima = datetime(1900, 1, 1).date()
+        
+        if data_inizio_obj > data_oggi:
+            return get_error_message("La data di inizio non può essere nel futuro!")
+        if data_inizio_obj < data_minima:
+            return get_error_message("La data di inizio non può essere precedente al 1900!")
+    except ValueError:
+        return get_error_message("Formato data inizio non valido!")
+    
+    # Validazione data fine se presente
+    if data_fine and data_fine.strip():
+        try:
+            data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d').date()
+            data_oggi = datetime.now().date()
+            
+            if data_fine_obj > data_oggi:
+                return get_error_message("La data di fine non può essere nel futuro!")
+            if data_fine_obj < data_inizio_obj:
+                return get_error_message("La data di fine non può essere precedente alla data di inizio!")
+        except ValueError:
+            return get_error_message("Formato data fine non valido!")
+    
+    return None
+
+def _create_empty_figures(message="Nessuna glicemia registrata"):
+    """Crea tre figure vuote con messaggio"""
+    def empty_fig():
+        f = go.Figure()
+        f.update_yaxes(range=[0, 300])
+        f.add_annotation(text=message, xref="paper", yref="paper",
+                        x=0.5, y=0.5, showarrow=False)
+        f.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10))
+        return f
+    
+    ef = empty_fig()
+    return ef, ef, ef
+
+
+def _add_clinical_thresholds(fig, x_labels):
+    """Aggiunge soglie cliniche al grafico"""
+    # Soglia 180 mg/dL
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[180]*len(x_labels),
+        mode="lines", name="Glicemia superiore a 180",
+        line=dict(color="red", dash="dash"), hoverinfo="skip"
+    ))
+    
+    # Fascia normale 80-130 mg/dL
+    y_low = [80]*len(x_labels)
+    y_high = [130]*len(x_labels)
+    
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y_low, mode="lines",
+        line=dict(width=0), showlegend=False, hoverinfo="skip", legendgroup="norma"
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y_high, mode="lines",
+        line=dict(width=0), fill="tonexty",
+        fillcolor="rgba(144,238,144,0.20)",
+        name="Glicemia nella norma (80—130)", hoverinfo="skip", legendgroup="norma"
+    ))
+
+
+def _apply_chart_styling(fig):
+    """Applica stile comune ai grafici"""
+    fig.update_layout(
+        plot_bgcolor="white", paper_bgcolor="white",
+        height=360, margin=dict(l=10, r=10, t=30, b=10)
+    )
+    fig.update_xaxes(showline=True, linecolor="black", linewidth=1)
+    fig.update_yaxes(showline=True, linecolor="black", linewidth=1)

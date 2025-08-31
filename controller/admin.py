@@ -49,6 +49,36 @@ def register_admin_callbacks(app):
         
         return dash.no_update
     
+    # Callback per popolare la dropdown dei medici di riferimento
+    @app.callback(
+        Output('new-medico-riferimento', 'options'),
+        [Input('new-role', 'value')],
+        prevent_initial_call=False
+    )
+    @db_session
+    def update_medici_dropdown(role):
+        """Popola la dropdown con i medici disponibili quando il ruolo è paziente"""
+        if role != 'paziente':
+            return []
+        
+        try:
+            medici = Medico.select()
+            options = [{"label": "Nessun medico di riferimento", "value": ""}]
+            
+            for medico in medici:
+                specializzazione = f" - {medico.specializzazione}" if medico.specializzazione else ""
+                options.append({
+                    "label": f"Dr. {medico.name} {medico.surname}{specializzazione}",
+                    "value": medico.username  # Usa username invece di id
+                })
+            
+            return options
+        except Exception as e:
+            print(f"Errore nel caricamento medici: {e}")
+            import traceback
+            traceback.print_exc()
+            return [{"label": "Errore nel caricamento medici", "value": ""}]
+    
     @app.callback(
         [Output('new-eta', 'value'),
          Output('new-eta', 'disabled'),
@@ -86,7 +116,8 @@ def register_admin_callbacks(app):
          Output('new-role', 'value'),
          Output('new-specializzazione', 'value'),
          Output('new-birth-date', 'value'),
-         Output('new-codice-fiscale', 'value')],
+         Output('new-codice-fiscale', 'value'),
+         Output('new-medico-riferimento', 'value')],
         [Input('submit-new-user', 'n_clicks')],
         [State('new-username', 'value'),
          State('new-password', 'value'),
@@ -97,20 +128,20 @@ def register_admin_callbacks(app):
          State('new-specializzazione', 'value'),
          State('new-birth-date', 'value'),
          State('new-eta', 'value'),
-         State('new-codice-fiscale', 'value')],
+         State('new-codice-fiscale', 'value'),
+         State('new-medico-riferimento', 'value')],
         prevent_initial_call=True
     )
     @db_session
     def create_new_user(submit_clicks, username, password, name, surname, 
-                       telefono, role, specializzazione, birth_date, eta, codice_fiscale):
+                       telefono, role, specializzazione, birth_date, eta, codice_fiscale, medico_riferimento_id):
         
         if not submit_clicks:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return [dash.no_update] * 11
         
         # Validazione campi obbligatori
         if not all([username, password, name, surname, role]):
-            return dbc.Alert('Tutti i campi obbligatori devono essere compilati!', 
-                           color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return [dbc.Alert('Tutti i campi obbligatori devono essere compilati!', color='danger')] + [dash.no_update] * 10
         
         if role == 'paziente':
             # Validazione età se inserita manualmente (senza data di nascita)
@@ -118,31 +149,25 @@ def register_admin_callbacks(app):
                 try:
                     eta_int = int(eta)
                     if eta_int < 0 or eta_int > 125:
-                        return dbc.Alert('L\'età deve essere compresa tra 0 e 125 anni!', 
-                                       color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                        return [dbc.Alert('L\'età deve essere compresa tra 0 e 125 anni!', color='danger')] + [dash.no_update] * 10
                 except (ValueError, TypeError):
-                    return dbc.Alert('L\'età deve essere un numero valido!', 
-                                   color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    return [dbc.Alert('L\'età deve essere un numero valido!', color='danger')] + [dash.no_update] * 10
             
             # Validazione data di nascita
             if birth_date:
                 try:
                     birth_date_obj = datetime.strptime(birth_date, '%Y-%m-%d')
                     if birth_date_obj.year < 1900:
-                        return dbc.Alert('La data di nascita non può essere precedente al 1900!', 
-                                       color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                        return [dbc.Alert('La data di nascita non può essere precedente al 1900!', color='danger')] + [dash.no_update] * 10
                     if birth_date_obj > datetime.now():
-                        return dbc.Alert('La data di nascita non può essere nel futuro!', 
-                                       color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                        return [dbc.Alert('La data di nascita non può essere nel futuro!', color='danger')] + [dash.no_update] * 10
                 except:
-                    return dbc.Alert('Formato data non valido!', 
-                                   color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    return [dbc.Alert('Formato data non valido!', color='danger')] + [dash.no_update] * 10
 
         try:
             # Controlla se l'utente esiste già
             if get_user_by_username(username):
-                return dbc.Alert(f'Username "{username}" già esistente!', 
-                               color='danger'), dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                return [dbc.Alert(f'Username "{username}" già esistente!', color='danger')] + [dash.no_update] * 10
             
             # Crea l'utente in base al ruolo
             from werkzeug.security import generate_password_hash
@@ -159,6 +184,17 @@ def register_admin_callbacks(app):
                 )
                 
             elif role == 'paziente':
+                # Ottieni il medico di riferimento se specificato
+                medico_rif = None
+                if medico_riferimento_id and medico_riferimento_id != "":
+                    try:
+                        medico_rif = Medico.get(username=medico_riferimento_id)  # Usa username invece di id
+                        if not medico_rif:
+                            return [dbc.Alert('Medico di riferimento non trovato!', color='danger')] + [dash.no_update] * 10
+                    except Exception as e:
+                        print(f"Errore nel recupero medico di riferimento: {e}")
+                        return [dbc.Alert('Errore nel recupero del medico di riferimento!', color='danger')] + [dash.no_update] * 10
+                
                 paziente = Paziente(
                     username=username,
                     password_hash=generate_password_hash(password),
@@ -168,8 +204,14 @@ def register_admin_callbacks(app):
                     is_admin=False,
                     birth_date=datetime.strptime(birth_date, '%Y-%m-%d') if birth_date else None,
                     eta=int(eta) if eta else None,
-                    codice_fiscale=codice_fiscale or None
+                    codice_fiscale=codice_fiscale or None,
+                    medico_riferimento=medico_rif
                 )
+                
+                # Se c'è un medico di riferimento, aggiungilo automaticamente anche alla relazione doctors
+                # Pony ORM gestisce automaticamente le relazioni many-to-many, quindi ha aggiunto anche patients
+                if medico_rif:
+                    paziente.doctors.add(medico_rif)
                 
             else:  # nuovo admin
                 user = User(
@@ -180,15 +222,19 @@ def register_admin_callbacks(app):
                     telefono= telefono if telefono else '',
                     is_admin=True,
                 )
+            
             commit()
+            
             # Se tutto va bene, pulisci il form e mostra messaggio di successo
-            return (dbc.Alert(f'Utente "{username}" creato con successo!', color='success'),
-                   '', '', '', '', '', '', '', '', '')
+            success_message = f'Utente "{username}" creato con successo!'
+            if role == 'paziente' and medico_rif:
+                success_message += f' Medico di riferimento: Dr. {medico_rif.name} {medico_rif.surname}'
+            
+            return [dbc.Alert(success_message, color='success')] + [''] * 10
             
         except Exception as e:
             print(f"Errore durante la creazione dell'utente: {e}")
-            return (dbc.Alert(f'Errore durante la creazione: {str(e)}', color='danger'),
-                 dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update)
+            return [dbc.Alert(f'Errore durante la creazione: {str(e)}', color='danger')] + [dash.no_update] * 10
     
     # Callback per mostrare/nascondere i campi specifici in base al ruolo
     @app.callback(
@@ -231,34 +277,34 @@ def register_admin_callbacks(app):
             return dash.no_update, dash.no_update
     
         try:
-        # Importa le funzioni dal model
+            # Importa le funzioni dal model
             from model.operations import get_user_by_username, delete_user_with_relations
         
-        # Ottieni l'utente da eliminare
+            # Ottieni l'utente da eliminare
             user_to_delete = get_user_by_username(selected_username)
             if not user_to_delete:
                 return dbc.Alert('Utente non trovato!', color='danger'), dash.no_update
         
-        # Non permettere di eliminare admin
+            # Non permettere di eliminare admin
             if user_to_delete.is_admin:
                 return dbc.Alert('Non è possibile eliminare un utente amministratore!', color='danger'), dash.no_update
 
-        # if hasattr(current_user, 'username') and current_user.username == selected_username:
-        # return dbc.Alert('Non puoi eliminare il tuo stesso account!', color='danger'), dash.no_update
+            # if hasattr(current_user, 'username') and current_user.username == selected_username:
+            # return dbc.Alert('Non puoi eliminare il tuo stesso account!', color='danger'), dash.no_update
         
-        # Elimina l'utente con le sue relazioni
+            # Elimina l'utente con le sue relazioni
             success, message = delete_user_with_relations(selected_username)
         
             if success:
                 return dbc.Alert(message, color='success'), ''
             else:
-             return dbc.Alert(f'Errore durante l\'eliminazione: {message}', color='danger'), dash.no_update
+                return dbc.Alert(f'Errore durante l\'eliminazione: {message}', color='danger'), dash.no_update
         
         except Exception as e:
             print(f"Errore durante l'eliminazione dell'utente: {e}")
             return dbc.Alert(f'Errore durante l\'eliminazione: {str(e)}', color='danger'), dash.no_update
 
-# Callback per popolare la dropdown degli utenti
+    # Callback per popolare la dropdown degli utenti
     @app.callback(
         Output('user-to-delete', 'options'),
         [Input('delete-user-button', 'n_clicks'),
@@ -276,5 +322,3 @@ def register_admin_callbacks(app):
         except Exception as e:
             print(f"Errore nel caricamento utenti: {e}")
             return []
-
-    

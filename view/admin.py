@@ -221,14 +221,21 @@ def get_create_user_form():
                         dbc.Label("Codice Fiscale", className="form-label"),
                         dbc.Input(id="new-codice-fiscale", type="text", 
                                  placeholder="Inserisci codice fiscale (opzionale)")
-                    ], md=12)
+                    ], md=6),
+                    dbc.Col([
+                        dbc.Label("Medico di Riferimento", className="form-label"),
+                        dbc.Select(
+                            id="new-medico-riferimento",
+                            placeholder="Seleziona medico di riferimento (opzionale)...",
+                            options=[],  # Verrà popolato dal callback
+                            value=""
+                        )
+                    ], md=6)
                 ], className="mb-3")
             ]),
             
             # Bottoni
             html.Div([
-                dbc.Button("Annulla", id="cancel-create-user", 
-                         color="secondary", className="me-2"),
                 dbc.Button("Crea Utente", id="submit-new-user", 
                          color="success", disabled=True)
             ], className="text-end")
@@ -305,6 +312,8 @@ def get_doctors_list():
     for medico in medici:
         # Conta i pazienti assegnati
         num_patients = len(medico.patients)
+        # Conta i pazienti di cui è medico di riferimento
+        num_riferimento = len(medico.pazienti_riferimento)
         
         card = dbc.Card([
             dbc.CardBody([
@@ -327,6 +336,10 @@ def get_doctors_list():
                     html.P([
                         html.Strong("Pazienti assegnati: "), 
                         html.Span(str(num_patients), className="badge bg-primary")
+                    ], className="card-text mb-1"),
+                    html.P([
+                        html.Strong("Pazienti di riferimento: "), 
+                        html.Span(str(num_riferimento), className="badge bg-success")
                     ], className="card-text")
                 ])
             ])
@@ -365,7 +378,7 @@ def get_patients_list():
                     ], className="card-text mb-1"),
                     html.P([
                         html.Strong("Data di nascita: "), 
-                        str(paziente.birth_date) if paziente.birth_date else "Non specificata"
+                        str(paziente.birth_date.strftime('%d/%m/%Y')) if paziente.birth_date else "Non specificata"
                     ], className="card-text mb-1"),
                     html.P([
                         html.Strong("Età: "), 
@@ -382,6 +395,12 @@ def get_patients_list():
                     html.P([
                         html.Strong("Medici assegnati: "), 
                         html.Span(str(num_doctors), className="badge bg-info")
+                    ], className="card-text mb-1"),
+                    html.P([
+                        html.Strong("Medico di riferimento: "), 
+                        f"Dr. {paziente.medico_riferimento.name} {paziente.medico_riferimento.surname}" if paziente.medico_riferimento else "Non assegnato",
+                        " " if paziente.medico_riferimento else "",
+                        html.Span("✅", style={"color": "green"}) if paziente.medico_riferimento else html.Span("❌", style={"color": "red"})
                     ], className="card-text")
                 ])
             ])

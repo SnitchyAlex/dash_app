@@ -8,5 +8,6 @@ class Medico(User):
     specializzazione = Optional(str)
     
     # Relazione many-to-many con i pazienti
+    pazienti_riferimento = Set("Paziente", reverse="medico_riferimento")
     patients = Set("Paziente", reverse="doctors")
     terapies = Set("Terapia", reverse="medico")
