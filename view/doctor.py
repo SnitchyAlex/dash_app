@@ -170,6 +170,11 @@ def get_doctor_dashboard(username):
                             dbc.Col([create_dashboard_button("grafico", "Andamenti glicemici", "btn-statistiche", "success")], 
                                 width=12, md=6, className="mb-3")
                         ]),
+
+                         dbc.Row([
+                            dbc.Col([create_dashboard_button("pazienti", "I miei pazienti", "btn-miei-pazienti", "success")], 
+                                width=12, md=6, className="mb-3")
+                        ], justify="center"),
                         
                         html.Div(id="doctor-feedback", className="mt-3")
                     ])
@@ -203,7 +208,7 @@ def get_terapie_menu():
     menu_items = [
         ("Assegna Nuova Terapia", "btn-assegna-terapia", "primary", "Assegna una nuova terapia farmacologica a un paziente"),
         ("Modifica Terapia", "btn-modifica-terapia", "success", "Modifica una terapia esistente"),
-        ("Elimina Terapia", "btn-elimina-terapia", "red", "Rimuovi una terapia non piÃ¹ necessaria")
+        ("Elimina Terapia", "btn-elimina-terapia", "red", "Rimuovi una terapia non più necessaria")
     ]
     
     menu_buttons = []
@@ -264,7 +269,7 @@ def get_assegna_terapia_form(pazienti):
                             {"label": "Lontano dai pasti", "value": "lontano_pasti"},
                             {"label": "Al mattino", "value": "mattino"},
                             {"label": "Alla sera", "value": "sera"},
-                            {"label": "Secondo necessitÃ ", "value": "secondo_necessita"}
+                            {"label": "Secondo necessità ", "value": "secondo_necessita"}
                         ],
                         placeholder="Seleziona indicazioni...",
                         className="form-control"
@@ -327,8 +332,8 @@ def get_elimina_terapia_form(pazienti):
         dbc.CardHeader([html.H5("Elimina Terapia", className="mb-0 text-primary")]),
         dbc.CardBody([
             dbc.Alert([
-                html.Strong("âš ï¸ Attenzione: "),
-                "L'eliminazione di una terapia Ã¨ un'azione irreversibile. Assicurati di voler procedere."
+                html.Strong("Attenzione: "),
+                "L'eliminazione di una terapia è un'azione irreversibile. Assicurati di voler procedere."
             ], color="warning", className="mb-4"),
             
             create_patient_selector(pazienti, "select-paziente-elimina"),
@@ -416,11 +421,6 @@ def get_terapie_list_for_delete(terapie, paziente):
     
     return html.Div([
         html.Hr(),
-        dbc.Alert([
-            html.I(className="fas fa-exclamation-triangle me-2"),
-            html.Strong("Attenzione: "),
-            "Stai per eliminare una terapia. Questa azione è¨ irreversibile!"
-        ], color="warning", className="mb-3"),
         html.H6(f"Terapie di {paziente.name} {paziente.surname}:", className="text-danger mb-3"),
         html.P("Seleziona la terapia da eliminare:", className="text-muted mb-3"),
         html.Div(terapie_cards)
@@ -492,13 +492,13 @@ def get_terapia_delete_success_message(paziente_nome, nome_farmaco, dosaggio):
     """Messaggio di successo dopo eliminazione terapia"""
     content = [
         html.I(className="fas fa-check-circle fa-2x text-success mb-3"),
-        html.P("Ãˆ stata eliminata la seguente terapia:"),
+        html.P("La seguente terapia è stata eliminata:"),
         html.Ul([
             html.Li(f"Paziente: {paziente_nome}"),
             html.Li(f"Farmaco: {nome_farmaco}"),
             html.Li(f"Dosaggio: {dosaggio}")
         ]),
-        html.P("La terapia Ã¨ stata rimossa definitivamente dal sistema.", className="text-muted")
+        html.P("La terapia è stata rimossa definitivamente dal sistema.", className="text-muted")
     ]
     
     btn1 = {'text': "Elimina altra terapia", 'id': "btn-elimina-altra-terapia", 'color': "danger"}
@@ -818,9 +818,15 @@ def create_patient_follow_card(paziente, action_type="follow"):
         ])
     ], className="mb-2", style={"border-left": f"4px solid {border_color}"})
 
-def get_segui_paziente_form(tutti_pazienti, pazienti_seguiti):
+def get_segui_paziente_form(tutti_pazienti, pazienti_seguiti, medico):
     """Form per seguire un nuovo paziente"""
     pazienti_non_seguiti = [p for p in tutti_pazienti if p not in pazienti_seguiti]
+    
+    # Pazienti che posso rendere medico di riferimento:
+    pazienti_disponibili_per_riferimento = [
+        p for p in tutti_pazienti 
+        if p.medico_riferimento is None
+    ]
     
     if not tutti_pazienti:
         return dbc.Card([
@@ -846,30 +852,37 @@ def get_segui_paziente_form(tutti_pazienti, pazienti_seguiti):
             html.Div([
                 html.H6("Pazienti che segui attualmente:", className="text-secondary mb-3"),
                 
-                # Se ci sono pazienti seguiti, mostra dropdown per smettere di seguire
                 html.Div([
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.Select(
-                                id="select-paziente-da-smettere",
-                                options=[
-                                    {"label": f"{p.name} {p.surname} ({p.username})", "value": p.username} 
-                                    for p in pazienti_seguiti
-                                ],
-                                placeholder="Seleziona paziente da rimuovere...",
-                                className="form-control"
-                            )
-                        ], width=8),
-                        dbc.Col([
-                            dbc.Button(
-                                [html.I(className="fas fa-user-times me-1"), "Smetti di seguire"],
-                                id="btn-smetti-seguire",
-                                color="outline-danger",
-                                size="sm",
-                                className="w-100"
-                            )
-                        ], width=4)
-                    ], className="mb-3")
+                    html.Div([
+                        dbc.Card([
+                            dbc.CardBody([
+                                dbc.Row([
+                                    dbc.Col([
+                                        html.P([
+                                            html.Strong(f"{p.name} {p.surname} ({p.username})"),
+                                            html.Br(),
+                                            html.Small(
+                                                "Medico di riferimento" if p.medico_riferimento == medico else "Seguito", 
+                                                className="text-primary fw-bold" if p.medico_riferimento == medico else "text-muted"
+                                            )
+                                        ], className="mb-0")
+                                    ], width=8),
+                                    dbc.Col([
+                                        dbc.ButtonGroup([
+                                            # Bottone per smettere di seguire (many-to-many)
+                                            dbc.Button(
+                                                [html.I(className="fas fa-user-times me-1"), "Smetti di seguire"],
+                                                id={'type': 'btn-smetti-seguire-paziente', 'index': p.username},
+                                                color="outline-danger",
+                                                size="sm"
+                                            ),
+                                        ], vertical=True)
+                                    ], width=4, className="d-flex align-items-center")
+                                ])
+                            ])
+                        ], className="mb-2", style={"border-left": "4px solid #28a745"})
+                        for p in pazienti_seguiti
+                    ])
                 ] if pazienti_seguiti else [
                     html.P("Non segui ancora nessun paziente.", className="text-muted mb-3")
                 ]),
@@ -877,37 +890,54 @@ def get_segui_paziente_form(tutti_pazienti, pazienti_seguiti):
                 html.Hr(className="my-4") if pazienti_seguiti else html.Div()
             ]),
             
-            # Sezione aggiungi nuovo paziente
+            # Sezione aggiungi nuovo paziente (many-to-many)
             html.Div([
-                html.H6("Aggiungi nuovo paziente:", className="text-secondary mb-3"),
+                html.H6("Inizia a seguire un nuovo paziente:", className="text-secondary mb-3"),
                 
                 html.Div([
-                    create_patient_selector(pazienti_non_seguiti, "select-nuovo-paziente", 
-                        "Seleziona Nuovo Paziente"),
+                    create_patient_selector(pazienti_non_seguiti, "select-nuovo-paziente-seguire", 
+                        "Seleziona Paziente da Seguire"),
                     
                     dbc.Alert([
                         html.I(className="fas fa-info-circle me-2"),
-                        html.Strong("Nota: "),
-                        "Seguendo un paziente potrai gestire le sue terapie e modificare i suoi dati clinici."
-                    ], color="info", className="mb-4"),
+                        html.Strong("Seguendo un paziente: "),
+                        "Potrai gestire le sue terapie e modificare i suoi dati clinici."
+                    ], color="info", className="mb-3"),
                     
-                    # Bottoni per seguire il paziente
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.Button([html.I(className="fas fa-user-plus me-1"), "Inizia a Seguire"],
-                                id="btn-conferma-segui-paziente", color="success", size="lg", 
-                                className="w-100")
-                        ], width=6),
-                        dbc.Col([
-                            dbc.Button([html.I(className="fas fa-user-md me-1"), "Segui come medico di riferimento"],
-                                id="btn-segui-come-medico-riferimento", color="success", size="lg", 
-                                className="w-100")
-                        ], width=6)
-                    ], className="mb-3")
+                    dbc.Button([html.I(className="fas fa-user-plus me-1"), "Inizia a Seguire"],
+                        id="btn-conferma-segui-paziente", color="primary", size="lg", 
+                        className="w-100 mb-3")
                 ] if pazienti_non_seguiti else [
                     dbc.Alert([
                         html.I(className="fas fa-info-circle me-2"),
-                        "Stai già  seguendo tutti i pazienti disponibili nel sistema."
+                        "Stai già seguendo tutti i pazienti disponibili nel sistema."
+                    ], color="info", className="mb-3")
+                ])
+            ]),
+            
+            html.Hr(className="my-4"),
+            
+            # Sezione diventa medico di riferimento
+            html.Div([
+                html.H6("Diventa medico di riferimento:", className="text-secondary mb-3"),
+                
+                html.Div([
+                    create_patient_selector(pazienti_disponibili_per_riferimento, "select-nuovo-medico-riferimento", 
+                        "Seleziona Paziente (senza medico di riferimento)"),
+                    
+                    dbc.Alert([
+                        html.I(className="fas fa-user-md me-2"),
+                        html.Strong("Come medico di riferimento: "),
+                        "Sarai indicato come il medico principale del paziente e lo seguirai automaticamente anche nella gestione generale."
+                    ], color="primary", className="mb-3"),
+                    
+                    dbc.Button([html.I(className="fas fa-user-md me-1"), "Diventa Medico di Riferimento"],
+                        id="btn-conferma-medico-riferimento", color="primary", size="lg", 
+                        className="w-100 mb-3")
+                ] if pazienti_disponibili_per_riferimento else [
+                    dbc.Alert([
+                        html.I(className="fas fa-info-circle me-2"),
+                        "Tutti i pazienti hanno già un medico di riferimento assegnato."
                     ], color="info", className="mb-3")
                 ])
             ]),
@@ -918,6 +948,7 @@ def get_segui_paziente_form(tutti_pazienti, pazienti_seguiti):
             ], className="d-grid gap-2 d-md-flex justify-content-md-end")
         ])
     ], className="mt-3")
+
 
 def create_patient_action_success_message(paziente_nome, paziente_username, action_type="follow", is_medico_riferimento=False):
     """Messaggio di successo per azioni sui pazienti"""
@@ -1007,6 +1038,40 @@ def get_indicazioni_display(indicazioni):
         "lontano_pasti": "Lontano dai pasti",
         "mattino": "Al mattino",
         "sera": "Alla sera",
-        "secondo_necessita": "Secondo necessitÃ "
+        "secondo_necessita": "Secondo necessità "
     }
     return mapping.get(indicazioni, indicazioni)
+
+# Aggiungi questa funzione al file view/doctor.py
+
+def get_miei_pazienti_view(medico):
+    """Vista semplice per mostrare i pazienti del medico"""
+    pazienti_seguiti = list(medico.patients)
+    pazienti_di_riferimento = [p for p in pazienti_seguiti if p.medico_riferimento == medico]
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("I Miei Pazienti", className="mb-0 text-primary")
+        ]),
+        dbc.CardBody([
+            # I pazienti che segui sono:
+            html.H6("I pazienti che segui sono:", className="text-secondary mb-3"),
+            html.Ul([
+                html.Li(f"{p.name} {p.surname} ({p.username})")
+                for p in pazienti_seguiti
+            ]) if pazienti_seguiti else html.P("Nessun paziente seguito.", className="text-muted"),
+            
+            html.Hr(className="my-4"),
+            
+            # Sei il medico di riferimento di:
+            html.H6("Sei il medico di riferimento di:", className="text-secondary mb-3"),
+            html.Ul([
+                html.Li(f"{p.name} {p.surname} ({p.username})")
+                for p in pazienti_di_riferimento
+            ]) if pazienti_di_riferimento else html.P("Nessun paziente di cui sei medico di riferimento.", className="text-muted"),
+            
+            html.Hr(),
+            create_back_to_menu_button()
+        ])
+    ], className="mt-3")
+

@@ -399,8 +399,7 @@ def get_patients_list():
                     html.P([
                         html.Strong("Medico di riferimento: "), 
                         f"Dr. {paziente.medico_riferimento.name} {paziente.medico_riferimento.surname}" if paziente.medico_riferimento else "Non assegnato",
-                        " " if paziente.medico_riferimento else "",
-                        html.Span("✅", style={"color": "green"}) if paziente.medico_riferimento else html.Span("❌", style={"color": "red"})
+                        " " if paziente.medico_riferimento else ""
                     ], className="card-text")
                 ])
             ])

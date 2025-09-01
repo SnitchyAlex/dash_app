@@ -247,7 +247,7 @@ def register_doctor_callbacks(app):
                 nome_farmaco=nome_farmaco.strip(),
                 dosaggio_per_assunzione=dosaggio.strip(),
                 assunzioni_giornaliere=int(assunzioni_giornaliere),
-                indicazioni=indicazioni_finali if indicazioni_finali else None,
+                indicazioni=indicazioni_finali if indicazioni_finali else '',
                 data_inizio=data_inizio_obj,
                 data_fine=data_fine_obj,
                 note=note.strip() if note else ''
@@ -295,7 +295,7 @@ def register_doctor_callbacks(app):
             if not paziente:
                 return get_error_message("Paziente non trovato!")
 
-            terapie = list(select(t for t in Terapia if t.paziente.username == patient_username))
+            terapie = paziente.terapies
 
             if not terapie:
                 return dbc.Alert([
@@ -327,7 +327,7 @@ def register_doctor_callbacks(app):
             if not paziente:
                 return get_error_message("Paziente non trovato!")
 
-            terapie = list(Terapia.select(lambda t: t.paziente.username == patient_username))
+            terapie = paziente.terapies
 
             if not terapie:
                 return dbc.Alert([
@@ -455,7 +455,7 @@ def register_doctor_callbacks(app):
                     nome_farmaco=nome_farmaco.strip(),
                     dosaggio_per_assunzione=dosaggio.strip(),
                     assunzioni_giornaliere=int(assunzioni_giornaliere),
-                    indicazioni=indicazioni_finali if indicazioni_finali else None,
+                    indicazioni=indicazioni_finali if indicazioni_finali else '',
                     data_inizio=data_inizio_obj,
                     data_fine=data_fine_obj,
                     note=note.strip() if note else '',
@@ -465,7 +465,7 @@ def register_doctor_callbacks(app):
                 # Aggiorna direttamente
                 terapia.dosaggio_per_assunzione = dosaggio.strip()
                 terapia.assunzioni_giornaliere = int(assunzioni_giornaliere)
-                terapia.indicazioni = indicazioni_finali if indicazioni_finali else None
+                terapia.indicazioni = indicazioni_finali if indicazioni_finali else ''
                 terapia.data_fine = data_fine_obj
                 terapia.note = note.strip() if note else ''
                 terapia.modificata = f"Dr. {medico.name} {medico.surname}"
@@ -725,12 +725,12 @@ def register_doctor_callbacks(app):
 
         tutti_pazienti = list(Paziente.select())
         pazienti_seguiti = list(medico.patients)
-        return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti)
+        return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti, medico)
 
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
         Input('btn-conferma-segui-paziente', 'n_clicks'),
-        State('select-nuovo-paziente', 'value'),
+        State('select-nuovo-paziente-seguire', 'value'),
         prevent_initial_call=True
     )
     @db_session
@@ -749,11 +749,9 @@ def register_doctor_callbacks(app):
 
             paziente_nome = f"{paziente.name} {paziente.surname}"
 
-            # Controlla se già seguito
             if paziente in medico.patients:
                 return get_paziente_gia_seguito_message(paziente_nome)
 
-            # Aggiungi paziente
             medico.patients.add(paziente)
             commit()
 
@@ -764,12 +762,12 @@ def register_doctor_callbacks(app):
 
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
-        Input('btn-segui-come-medico-riferimento', 'n_clicks'),
-        State('select-nuovo-paziente', 'value'),
+        Input('btn-conferma-medico-riferimento', 'n_clicks'),
+        State('select-nuovo-medico-riferimento', 'value'),
         prevent_initial_call=True
     )
     @db_session
-    def segui_come_medico_riferimento(n_clicks, paziente_username):
+    def conferma_medico_riferimento(n_clicks, paziente_username):
         if not n_clicks or not paziente_username:
             return dash.no_update
 
@@ -784,34 +782,70 @@ def register_doctor_callbacks(app):
 
             paziente_nome = f"{paziente.name} {paziente.surname}"
 
-            # Controlla se il paziente ha già un medico di riferimento
-            if paziente.medico_riferimento:
+            if paziente.medico_riferimento is not None:
                 medico_attuale = paziente.medico_riferimento
                 return get_error_message(
                     f"Il paziente {paziente_nome} ha già un medico di riferimento: "
-                    f"Dr. {medico_attuale.name} {medico_attuale.surname}. "
-                    f"Un paziente può avere un solo medico di riferimento."
+                    f"Dr. {medico_attuale.name} {medico_attuale.surname}."
                 )
 
-            # Controlla se già seguito nella relazione many-to-many
-            if paziente in medico.patients:
-                return get_error_message(
-                    f"Stai già seguendo il paziente {paziente_nome}. "
-                    f"Puoi solo diventare il medico di riferimento di pazienti che non segui ancora."
-                )
-
-            # Assegna come medico di riferimento
             paziente.medico_riferimento = medico
-        
-            # Aggiungi anche alla relazione many-to-many
-            medico.patients.add(paziente)
-        
+            
+            if paziente not in medico.patients:
+                medico.patients.add(paziente)
+            
             commit()
 
             return get_segui_come_medico_riferimento_success_message(paziente_nome, paziente_username)
 
         except Exception as e:
             return get_error_message(f"Errore durante l'operazione: {str(e)}")
+
+    @app.callback(
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input({'type': 'btn-smetti-seguire-paziente', 'index': dash.dependencies.ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    @db_session
+    def smetti_seguire_paziente_specifico(n_clicks_list):
+        if not any(n_clicks_list):
+            return dash.no_update
+
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+
+        try:
+            button_id = ctx.triggered[0]['prop_id']
+            json_start = button_id.find('{')
+            json_end = button_id.rfind('}') + 1
+            button_data = json.loads(button_id[json_start:json_end])
+            paziente_username = button_data['index']
+
+            medico = get_current_medico()
+            if not medico:
+                return get_error_message("Errore: medico non trovato!")
+
+            paziente = Paziente.get(username=paziente_username)
+            if not paziente:
+                return get_error_message("Errore: paziente non trovato!")
+
+            if paziente not in medico.patients:
+                return get_error_message("Non stai seguendo questo paziente.")
+
+            medico.patients.remove(paziente)
+
+            if paziente.medico_riferimento == medico:
+                paziente.medico_riferimento = None
+    
+            commit()
+
+            tutti_pazienti = list(Paziente.select())
+            pazienti_seguiti = list(medico.patients)
+            return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti, medico)
+
+        except Exception as e:
+            return get_error_message(f"Errore durante la rimozione: {str(e)}")
 
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
@@ -829,47 +863,23 @@ def register_doctor_callbacks(app):
 
         tutti_pazienti = list(Paziente.select())
         pazienti_seguiti = list(medico.patients)
-        return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti)
-
+        return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti, medico)
+    
     @app.callback(
-        Output('doctor-content', 'children', allow_duplicate=True),
-        Input('btn-smetti-seguire', 'n_clicks'),
-        State('select-paziente-da-smettere', 'value'),
-        prevent_initial_call=True
+    Output('doctor-content', 'children', allow_duplicate=True),
+    Input('btn-miei-pazienti', 'n_clicks'),
+    prevent_initial_call=True
     )
     @db_session
-    def smetti_seguire_paziente(n_clicks, paziente_username):
-        if not n_clicks or not paziente_username:
+    def show_miei_pazienti(n_clicks):
+        if not n_clicks:
             return dash.no_update
-
-        try:
-            medico = get_current_medico()
-            if not medico:
-                return get_error_message("Errore: medico non trovato!")
-
-            paziente = Paziente.get(username=paziente_username)
-            if not paziente:
-                return get_error_message("Errore: paziente non trovato!")
-
-            if paziente not in medico.patients:
-                return get_error_message("Non stai seguendo questo paziente.")
-
-            # Rimuovi paziente
-            medico.patients.remove(paziente)
-
-            # rimuovi se è anche medico di riferimento
-            if paziente.medico_riferimento == medico:
-                paziente.medico_riferimento = None
-
-            commit()
-
-            # Ricarica schermata aggiornata
-            tutti_pazienti = list(Paziente.select())
-            pazienti_seguiti = list(medico.patients)
-            return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti)
-
-        except Exception as e:
-            return get_error_message(f"Errore durante la rimozione: {str(e)}")
+    
+        medico = get_current_medico()
+        if not medico:
+            return get_error_message("Errore: medico non trovato!")
+    
+        return get_miei_pazienti_view(medico)
 
     # STATISTICS AND CHARTS
     @app.callback(
@@ -966,7 +976,6 @@ def register_doctor_callbacks(app):
                 line=dict(color="#F58518", width=2), connectgaps=True
             ))
 
-            # Aggiungi soglie e fascia normale
             add_glucose_reference_lines(fig_dow, dow_order)
         else:
             fig_dow.add_annotation(
@@ -985,7 +994,7 @@ def register_doctor_callbacks(app):
 
         if not weekly_mean.empty:
             x_labels = [
-                (ts.strftime("%d/%m") + "–" + (ts + timedelta(days=6)).strftime("%d/%m"))
+                (ts.strftime("%d/%m") + "→" + (ts + timedelta(days=6)).strftime("%d/%m"))
                 for ts in weekly_mean.index
             ]
 
@@ -1037,7 +1046,6 @@ def register_doctor_callbacks(app):
         add_glucose_reference_lines(fig_month, x_m)
         fig_month.update_layout(xaxis_title=f"Anno ({year})")
 
-        # Applica stile comune
         for fig in (fig_dow, fig_week, fig_month):
             fig.update_layout(
                 height=360, margin=dict(l=10, r=10, t=30, b=10),
@@ -1051,14 +1059,12 @@ def register_doctor_callbacks(app):
 
 def add_glucose_reference_lines(fig, x_labels):
     """Aggiunge le linee di riferimento per i valori glicemici"""
-    # Soglia 180
     fig.add_trace(go.Scatter(
         x=x_labels, y=[180] * len(x_labels),
         mode="lines", name="Glicemia superiore a 180",
         line=dict(color="red", dash="dash"), hoverinfo="skip"
     ))
     
-    # Fascia 80–130
     y_low, y_high = [80] * len(x_labels), [130] * len(x_labels)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y_low, mode="lines",
@@ -1071,4 +1077,3 @@ def add_glucose_reference_lines(fig, x_labels):
         name="Glicemia nella norma (80–130)",
         hoverinfo="skip", legendgroup="norma"
     ))
-    
