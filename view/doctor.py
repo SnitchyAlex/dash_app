@@ -636,7 +636,7 @@ def get_patient_data_display(paziente, can_modify=True):
         "Nome Completo": f"{paziente.name} {paziente.surname}",
         "Username": paziente.username,
         "Data di Nascita": paziente.birth_date.strftime('%d/%m/%Y') if paziente.birth_date else None,
-        "EtÃ ": f"{paziente.eta} anni" if paziente.eta else None,
+        "Età": f"{paziente.eta} anni" if paziente.eta else None,
         "Codice Fiscale": paziente.codice_fiscale
     }
     
