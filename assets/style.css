@@ -240,3 +240,92 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+/* === CAMPANELLA & ALERTS (Sostituisci da qui in poi) === */
+
+/* Animazioni */
+@keyframes bell-ring {
+  0% { transform: rotate(0); }
+  10% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  30% { transform: rotate(14deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+  60%,100% { transform: rotate(0); }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, .7); }
+  70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+/* Bottone campanella (usa <img>, non <i>) */
+#bell-button{
+  position: relative;
+  border: none;
+  width: 48px;
+  height: 48px;
+  transition: background-color .3s ease, transform .2s ease, box-shadow .3s ease;
+}
+#bell-button img{
+  width: 32px;
+  height: 32px;
+  display: inline-block;
+  transform-origin: top center;
+  pointer-events: none;
+}
+
+#bell-button:hover{ transform: scale(1.15) rotate(10deg); }
+#bell-button:active{ transform: scale(0.95); }
+
+/* Stati colore */
+#bell-button.btn-danger{ animation: pulse 2s infinite; box-shadow: 0 4px 12px rgba(220,53,69,.4); }
+#bell-button.btn-warning{ box-shadow: 0 4px 12px rgba(255,193,7,.4); }
+#bell-button.btn-success{ box-shadow: 0 4px 12px rgba(25,135,84,.3); }
+
+/* Anima la campanella <img> in base allo stato */
+#bell-button.btn-danger img{ animation: bell-ring 2s ease-in-out infinite; }
+#bell-button.btn-warning img{ animation: bell-ring 4s ease-in-out infinite; }
+
+/* Banner alert sopra i bottoni */
+.alert-medication{
+  border-inline-start: 4px solid #dc3545;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+  box-shadow: 0 2px 8px rgba(220,53,69,.15);
+  animation: slideDown .3s ease-out;
+}
+@keyframes slideDown{
+  from{ opacity:0; transform: translateY(-20px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+
+/* Modal alert styling */
+#alerts-modal .modal-header{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color:#fff;
+}
+#alerts-modal .modal-title{ font-weight:600; }
+
+/* Lista alert nel modal */
+#alerts-modal .list-group-item{ transition: all .3s ease; }
+#alerts-modal .list-group-item:hover{
+  background-color: rgba(0,0,0,.02);
+  transform: translateX(5px);
+}
+#alerts-modal .list-group-item.border-danger{
+  border-left-width:4px!important;
+  background: linear-gradient(to right, rgba(220,53,69,.05), transparent);
+}
+#alerts-modal .list-group-item.border-warning{
+  border-left-width:4px!important;
+  background: linear-gradient(to right, rgba(255,193,7,.05), transparent);
+}
+#alerts-modal .list-group-item.border-info{
+  border-left-width:4px!important;
+  background: linear-gradient(to right, rgba(13,202,240,.05), transparent);
+}
+
+/* Riduci animazioni se preferito dall'utente */
+@media (prefers-reduced-motion: reduce){
+  *{ animation: none !important; transition: none !important; }
+}

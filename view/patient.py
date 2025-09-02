@@ -6,6 +6,9 @@ from datetime import datetime, date
 
 # DASHBOARD PRINCIPALE
 
+# MODIFICHE PER view/patient.py
+# Sostituisci la funzione get_patient_dashboard con questa versione aggiornata:
+
 def get_patient_dashboard(username):
     """Dashboard per i pazienti"""
     return dbc.Container([
@@ -45,23 +48,53 @@ def get_patient_dashboard(username):
         dbc.Row([
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader([
-                        html.Div([
-                            html.Img(src="/assets/patient.png", 
-                                   style={"width": "40px", "height": "40px", "margin-right": "10px"}),
-                            html.H4("Area Paziente", className="mb-0 patient-title", 
-                                  style={"display": "inline-block"})
-                        ])
-                    ]),
+                    dbc.CardHeader(
+                        className="d-flex align-items-center",
+                        children=[
+                            html.Div([
+                                html.Img(src="/assets/patient.png", 
+                                       style={"width": "40px", "height": "40px", "margin-right": "10px"}),
+                                html.H4("Area Paziente", className="mb-0 patient-title", 
+                                      style={"display": "inline-block"})
+                            ], className="d-flex align-items-center"),
+                            
+                            # Campanellina in alto a dx nell'header
+                            dbc.Button(
+                                html.Img(src="/assets/bell_ring.png",
+                                         style={"width": "32px", "height": "32px"}),
+                                id="bell-button",
+                                color="success",
+                                className="rounded-circle p-2 shadow-sm ms-auto",
+                                n_clicks=0,
+                            ),
+                        ],
+                    ),
+                    
                     dbc.CardBody([
                         html.P("Benvenuto nella tua area personale. Qui puoi gestire i tuoi dati sanitari.", 
                                className="card-text mb-4"),
+                        
+                        # Alert invito assunzioni (render via callback)
+                        html.Div(id="meds-alert-container", className="mb-3"),
                         
                         # Griglia pulsanti
                         _create_patient_buttons_grid(),
                         
                         # Area per messaggi/feedback
-                        html.Div(id="patient-feedback", className="mt-3")
+                        html.Div(id="patient-feedback", className="mt-3"),
+                        
+                        # Modal per gli alert
+                        dbc.Modal(
+                            id="alerts-modal",
+                            is_open=False,
+                            children=[
+                                dbc.ModalHeader(dbc.ModalTitle("I tuoi promemoria")),
+                                dbc.ModalBody(id="alerts-modal-body"),
+                                dbc.ModalFooter(
+                                    dbc.Button("Chiudi", id="alerts-modal-close", color="secondary")
+                                )
+                            ]
+                        )
                     ])
                 ]),
                 
@@ -71,6 +104,7 @@ def get_patient_dashboard(username):
             ], width=8)
         ], justify="center", className="mt-4")
     ], fluid=True, className="main-container")
+
 
 
 def get_patient_welcome_content():
@@ -739,3 +773,17 @@ def _get_therapy_status(terapia, oggi):
         pass
     
     return is_active, status_info
+# Aggiungi anche questa funzione per l'alert delle assunzioni (se non c'è già):
+def get_medication_alert():
+    """Alert 'danger' che invita a completare le assunzioni"""
+    return dbc.Alert([
+        html.Span([
+            html.Img(src="/assets/bell_ring.png", style={"width": "18px", "height": "18px"})
+        ], className="alert-icon me-2"),
+        html.Div([
+            html.Strong("Promemoria assunzioni giornaliere. "),
+            "Non hai ancora registrato assunzioni di farmaci per oggi. ",
+            "Ricorda di registrare le tue assunzioni usando il pulsante ", 
+            html.Em("Nuova Assunzione"), " qui sotto."
+        ], style={"display": "inline"})
+    ], color="danger", className="d-flex align-items-center alert-medication")

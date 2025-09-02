@@ -4,8 +4,8 @@ import dash
 from dash.dependencies import Input, Output, State
 from flask_login import current_user
 from dash import html, dcc
-from datetime import datetime, timedelta
-from pony.orm import db_session, commit
+from datetime import datetime, timedelta,time
+from pony.orm import db_session, commit,exists
 import pandas as pd
 import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
@@ -26,6 +26,7 @@ def register_patient_callbacks(app):
     _register_data_callbacks(app)
     _register_chart_callbacks(app)
     _register_navigation_callbacks(app)
+    _register_alert_callbacks(app)
 
 
 def _register_form_callbacks(app):
@@ -641,3 +642,196 @@ def _apply_chart_styling(fig):
     )
     fig.update_xaxes(showline=True, linecolor="black", linewidth=1)
     fig.update_yaxes(showline=True, linecolor="black", linewidth=1)
+
+from datetime import time  # aggiungi questo import
+
+def _day_bounds(d):
+    """Restituisce l'intervallo [inizio_giorno, fine_giorno) per la data d."""
+    start = datetime.combine(d, time.min)
+    end = start + timedelta(days=1)
+    return start, end
+
+def _check_patient_alerts(paziente):
+    """
+    Verifica gli alert per il paziente usando EXISTS (evita gli errori interni di Pony).
+    """
+    alerts = []
+    today = datetime.now().date()
+    start, end = _day_bounds(today)
+
+    # 1) Assunzioni di oggi (EXISTS)
+    try:
+        has_today = exists(a for a in Assunzione
+                           if a.paziente == paziente and a.data_ora >= start and a.data_ora < end)
+    except Exception:
+        # fallback ultra-safe: nessuna assunzione oggi
+        has_today = False
+
+    if not has_today:
+        alerts.append({
+            'type': 'danger',
+            'title': 'Promemoria assunzioni giornaliere',
+            'message': 'Non hai ancora registrato assunzioni di farmaci per oggi.',
+            'icon': 'bell'
+        })
+
+    # 2) Terapie attive (calcolate in Python, niente query complesse)
+    def _to_date(x):
+        if x is None:
+            return None
+        return x.date() if hasattr(x, 'date') else x
+
+    try:
+        terapie = list(paziente.terapies)
+    except Exception:
+        terapie = []
+
+    terapie_attive = 0
+    for t in terapie:
+        di = _to_date(t.data_inizio)
+        df = _to_date(t.data_fine)
+        if (di is None or di <= today) and (df is None or df >= today):
+            terapie_attive += 1
+
+    if terapie_attive > 0 and not has_today:
+        alerts.append({
+            'type': 'info',
+            'title': f'Hai {terapie_attive} terapie attive',
+            'message': 'Ricorda di seguire le indicazioni del medico per dosaggi e orari.',
+            'icon': 'pills'
+        })
+
+    # 3) Glicemie di oggi (EXISTS)
+    try:
+        has_glicemia_today = exists(g for g in Glicemia
+                                    if g.paziente == paziente and g.data_ora >= start and g.data_ora < end)
+    except Exception:
+        has_glicemia_today = False
+
+    if not has_glicemia_today:
+        alerts.append({
+            'type': 'warning',
+            'title': 'Promemoria misurazione glicemia',
+            'message': 'Non hai ancora registrato misurazioni di glicemia oggi.',
+            'icon': 'tint'
+        })
+
+    return alerts
+
+
+
+# 3. AGGIUNGI questa nuova funzione ALLA FINE del file (dopo _apply_chart_styling)
+def _register_alert_callbacks(app):
+    """Gestione alert: (1) banner sopra i bottoni, (2) Modal con lista alert"""
+
+    # (1) Mostra/nasconde il banner in base alle assunzioni di oggi
+    @app.callback(
+        Output('meds-alert-container', 'children'),
+        Input('patient-content', 'children'),
+        prevent_initial_call=False
+    )
+    @db_session
+    def render_meds_alert_banner(_):
+        """Mostra il banner promemoria per assunzioni giornaliere"""
+        try:
+            if not current_user.is_authenticated:
+                return dash.no_update
+
+            paziente = Paziente.get(username=current_user.username)
+            if not paziente:
+                return dash.no_update
+
+            from datetime import datetime
+            today = datetime.now().date()
+            start, end = _day_bounds(today)
+
+            # Verifica se ci sono assunzioni registrate oggi
+            has_today = exists(a for a in Assunzione
+                   if a.paziente == paziente and a.data_ora >= start and a.data_ora < end)
+
+            if has_today:
+                return None  # Nessun banner se ha già registrato assunzioni oggi
+            
+            # Mostra promemoria per completare le assunzioni giornaliere
+            return get_medication_alert()
+
+        except Exception:
+            return dash.no_update
+
+    # (2) Clic campanellina nel header -> apri/chiudi Modal e popola contenuto
+    @app.callback(
+        Output('alerts-modal', 'is_open'),
+        Output('alerts-modal-body', 'children'),
+        Output('bell-button', 'color'),  # Cambia colore campanella
+        Input('bell-button', 'n_clicks'),
+        Input('alerts-modal-close', 'n_clicks'),
+        Input('patient-content', 'children'),  # Trigger per aggiornamento
+        State('alerts-modal', 'is_open'),
+        prevent_initial_call=False
+    )
+    @db_session
+    def toggle_alerts_modal(n_bell, n_close, content_update, is_open):
+        ctx = dash.callback_context
+        
+        # Prepara il contenuto degli alert
+        items = []
+        bell_color = "success"  # Default verde
+        
+        try:
+            if current_user.is_authenticated:
+                paziente = Paziente.get(username=current_user.username)
+            else:
+                paziente = None
+
+            if paziente:
+                alerts = _check_patient_alerts(paziente)
+                
+                # Determina colore campanella in base alla priorità degli alert
+                if any(a['type'] == 'danger' for a in alerts):
+                    bell_color = "danger"
+                elif any(a['type'] == 'warning' for a in alerts):
+                    bell_color = "warning"
+                elif alerts:
+                    bell_color = "info"
+                
+                # Crea elementi per il modal
+                for alert in alerts:
+                    color_map = {
+                        'danger': 'text-danger',
+                        'warning': 'text-warning', 
+                        'info': 'text-info'
+                    }
+                    
+                    items.append(
+                        dbc.ListGroupItem([
+                            html.Div([
+                                html.Strong(alert['title'], className=color_map.get(alert['type'], ''))
+                            ]),
+                            html.Div(alert['message'], className="mt-1 small")
+                        ], className=f"border-start border-{alert['type']} border-3")
+                    )
+                    
+        except Exception as e:
+            items.append(dbc.ListGroupItem(f"Errore nel recupero alert: {str(e)}"))
+
+        body_children = dbc.ListGroup(items, flush=True) if items else html.Div(
+            "Nessun promemoria al momento. Ottimo lavoro! 🎉", 
+            className="text-center p-3"
+        )
+
+        # Gestisci apertura/chiusura modal
+        if not ctx.triggered:
+            # Prima apertura - solo aggiorna colore campanella
+            return False, body_children, bell_color
+        
+        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        
+        if trigger_id == 'bell-button':
+            return (not is_open), body_children, bell_color
+        elif trigger_id == 'alerts-modal-close':
+            return False, body_children, bell_color
+        elif trigger_id == 'patient-content':
+            # Solo aggiorna contenuto e colore, non aprire
+            return is_open, body_children, bell_color
+
+        return is_open, body_children, bell_color
