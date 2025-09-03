@@ -4,7 +4,9 @@ import dash
 from dash.dependencies import Input, Output, State
 from flask_login import current_user
 from dash import html, dcc
-from datetime import datetime, timedelta,time
+from datetime import datetime, timedelta
+from datetime import time as dtime
+import time as pytime
 from pony.orm import db_session, commit,exists
 import pandas as pd
 import plotly.graph_objects as go
@@ -17,7 +19,8 @@ from model.sintomi import Sintomi
 from model.terapia import Terapia
 
 from view.patient import *
-
+#print iniziale di debug
+print("DEBUG: controller/patient.py caricato!")
 # callback principale
 
 def register_patient_callbacks(app):
@@ -52,6 +55,7 @@ def _register_form_callbacks(app):
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
+        Output('alerts-refresh', 'data', allow_duplicate=True),
         Input('btn-salva-glicemia', 'n_clicks'),
         [State('input-valore-glicemia', 'value'),
          State('input-data-glicemia', 'value'),
@@ -64,17 +68,17 @@ def _register_form_callbacks(app):
     @db_session
     def save_glicemia_measurement(n_clicks, valore, data_misurazione, ora, momento_pasto, note, due_ore_pasto):
         if not n_clicks:
-            return dash.no_update
+            return dash.no_update,dash.no_update
         
         # Validazione input
         validation_error = _validate_glicemia_input(valore, data_misurazione, ora, momento_pasto, due_ore_pasto)
         if validation_error:
-            return validation_error
+            return validation_error,dash.no_update
         
         try:
             paziente = Paziente.get(username=current_user.username)
             if not paziente:
-                return get_error_message("Errore: paziente non trovato!")
+                return get_error_message("Errore: paziente non trovato!"),dash.no_update
             
             # Creazione oggetto datetime
             data_inserita = datetime.strptime(data_misurazione, '%Y-%m-%d').date()
@@ -91,11 +95,13 @@ def _register_form_callbacks(app):
                 due_ore_pasto=campo_due_ore
             )
             commit()
+            refresh_data2 = {'ts': pytime.time()}
+            print(f"DEBUG: Restituendo refresh_data = {refresh_data2}")
             
-            return get_success_message(valore, data_ora, momento_pasto, due_ore_pasto)
+            return get_success_message(valore, data_ora, momento_pasto, due_ore_pasto),refresh_data2
             
         except Exception as e:
-            return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+            return get_error_message(f"Errore durante il salvataggio: {str(e)}"),dash.no_update
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
@@ -109,6 +115,7 @@ def _register_form_callbacks(app):
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
+        Output('alerts-refresh', 'data', allow_duplicate=True),
         Input('btn-salva-assunzione', 'n_clicks'),
         [State('input-nome-farmaco', 'value'),
          State('input-dosaggio-farmaco', 'value'),
@@ -120,17 +127,17 @@ def _register_form_callbacks(app):
     @db_session
     def save_assunzione(n_clicks, nome_farmaco, dosaggio, data_assunzione, ora, note):
         if not n_clicks:
-            return dash.no_update
+            return dash.no_update,dash.no_update
         
         # Validazione input
         validation_error = _validate_assunzione_input(nome_farmaco, dosaggio, data_assunzione, ora)
         if validation_error:
-            return validation_error
+            return validation_error,dash.no_update
         
         try:
             paziente = Paziente.get(username=current_user.username)
             if not paziente:
-                return get_error_message("Errore: paziente non trovato!")
+                return get_error_message("Errore: paziente non trovato!"),dash.no_update
             
             # Creazione datetime
             data_inserita = datetime.strptime(data_assunzione, '%Y-%m-%d').date()
@@ -146,11 +153,15 @@ def _register_form_callbacks(app):
                 note=note.strip() if note else ''
             )
             commit()
+            #debug
+            refresh_data = {'ts': time.time()}
+            print(f"DEBUG: Restituendo refresh_data = {refresh_data}")
             
-            return get_assunzione_success_message(nome_farmaco, dosaggio, data_ora)
+            return get_assunzione_success_message(nome_farmaco, dosaggio, data_ora),refresh_data
             
         except Exception as e:
-            return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+            print(f"DEBUG: Errore nel salvataggio: {str(e)}")
+            return get_error_message(f"Errore durante il salvataggio: {str(e)}"),dash.no_update
 
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
@@ -647,7 +658,7 @@ from datetime import time  # aggiungi questo import
 
 def _day_bounds(d):
     """Restituisce l'intervallo [inizio_giorno, fine_giorno) per la data d."""
-    start = datetime.combine(d, time.min)
+    start = datetime.combine(d,dtime.min)
     end = start + timedelta(days=1)
     return start, end
 
@@ -659,10 +670,14 @@ def _check_patient_alerts(paziente):
     today = datetime.now().date()
     start, end = _day_bounds(today)
 
-    # 1) Assunzioni di oggi (EXISTS)
+    # 1) Assunzioni di oggi 
     try:
-        has_today = exists(a for a in Assunzione
-                           if a.paziente == paziente and a.data_ora >= start and a.data_ora < end)
+        assunzioni_oggi = []
+        for assunzione in paziente.assunzione:
+            if start <= assunzione.data_ora < end:
+                assunzioni_oggi.append(assunzione)
+        has_today = len(assunzioni_oggi) > 0    
+        
     except Exception:
         # fallback ultra-safe: nessuna assunzione oggi
         has_today = False
@@ -702,19 +717,22 @@ def _check_patient_alerts(paziente):
         })
 
     # 3) Glicemie di oggi (EXISTS)
-    try:
-        has_glicemia_today = exists(g for g in Glicemia
-                                    if g.paziente == paziente and g.data_ora >= start and g.data_ora < end)
-    except Exception:
-        has_glicemia_today = False
+    # #try:
+    #     glicemie_oggi = []
+    #     for g in paziente.glicemias:
+    #         if start <= g.data_ora < end:
+    #             glicemie_oggi.append(g)
+    #     has_glicemia_today = len(glicemie_oggi) > 0       
+    # except Exception:
+    #     has_glicemia_today = False
 
-    if not has_glicemia_today:
-        alerts.append({
-            'type': 'warning',
-            'title': 'Promemoria misurazione glicemia',
-            'message': 'Non hai ancora registrato misurazioni di glicemia oggi.',
-            'icon': 'tint'
-        })
+    # if not has_glicemia_today:
+    #     alerts.append({
+    #         'type': 'warning',
+    #         'title': 'Promemoria misurazione glicemia',
+    #         'message': 'Non hai ancora registrato misurazioni di glicemia oggi.',
+    #         'icon': 'tint'
+    #     })
 
     return alerts
 
@@ -727,12 +745,15 @@ def _register_alert_callbacks(app):
     # (1) Mostra/nasconde il banner in base alle assunzioni di oggi
     @app.callback(
         Output('meds-alert-container', 'children'),
-        Input('patient-content', 'children'),
+        [Input('patient-content', 'children'),
+         Input('alerts-refresh', 'data')],
         prevent_initial_call=False
     )
     @db_session
-    def render_meds_alert_banner(_):
+    def render_meds_alert_banner(_, refresh_data):
         """Mostra il banner promemoria per assunzioni giornaliere"""
+        #per debug questo sotto
+        print(f"DEBUG: render_meds_alert_banner chiamato con refresh_data = {refresh_data}")
         try:
             if not current_user.is_authenticated:
                 return dash.no_update
@@ -746,16 +767,24 @@ def _register_alert_callbacks(app):
             start, end = _day_bounds(today)
 
             # Verifica se ci sono assunzioni registrate oggi
-            has_today = exists(a for a in Assunzione
-                   if a.paziente == paziente and a.data_ora >= start and a.data_ora < end)
-
+            assunzioni_oggi = []
+            for assunzione in paziente.assunzione:
+                if start <= assunzione.data_ora < end:
+                    assunzioni_oggi.append(assunzione)
+            has_today = len(assunzioni_oggi) > 0
+            #per debug questo sotto
+            print(f"DEBUG: has_today = {has_today}")
             if has_today:
+                #debug 
+                print("DEBUG: Nascondo banner - assunzioni trovate")
                 return None  # Nessun banner se ha già registrato assunzioni oggi
             
             # Mostra promemoria per completare le assunzioni giornaliere
+            print("DEBUG: Mostro banner - nessuna assunzione oggi")
             return get_medication_alert()
 
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: Eccezione in render_meds_alert_banner: {str(e)}")
             return dash.no_update
 
     # (2) Clic campanellina nel header -> apri/chiudi Modal e popola contenuto

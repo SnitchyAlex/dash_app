@@ -94,7 +94,8 @@ def get_patient_dashboard(username):
                                     dbc.Button("Chiudi", id="alerts-modal-close", color="secondary")
                                 )
                             ]
-                        )
+                        ),
+                        dcc.Store(id="alerts-refresh", data={"ts": 0}),
                     ])
                 ]),
                 
