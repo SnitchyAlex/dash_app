@@ -154,7 +154,7 @@ def _register_form_callbacks(app):
             )
             commit()
             #debug
-            refresh_data = {'ts': time.time()}
+            refresh_data = {'ts': pytime.time()}
             print(f"DEBUG: Restituendo refresh_data = {refresh_data}")
             
             return get_assunzione_success_message(nome_farmaco, dosaggio, data_ora),refresh_data
@@ -654,7 +654,7 @@ def _apply_chart_styling(fig):
     fig.update_xaxes(showline=True, linecolor="black", linewidth=1)
     fig.update_yaxes(showline=True, linecolor="black", linewidth=1)
 
-from datetime import time  # aggiungi questo import
+
 
 def _day_bounds(d):
     """Restituisce l'intervallo [inizio_giorno, fine_giorno) per la data d."""
