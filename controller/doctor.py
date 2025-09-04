@@ -15,6 +15,8 @@ import json
 from model.terapia import Terapia
 from model.medico import Medico
 from model.paziente import Paziente
+from model.glicemia import Glicemia
+from model.assunzione import Assunzione #impporto il modello per gli alert
 from view.doctor import *
 
 
@@ -1057,23 +1059,246 @@ def register_doctor_callbacks(app):
         return fig_dow, fig_week, fig_month
 
 
-def add_glucose_reference_lines(fig, x_labels):
-    """Aggiunge le linee di riferimento per i valori glicemici"""
-    fig.add_trace(go.Scatter(
+    def add_glucose_reference_lines(fig, x_labels):
+        """Aggiunge le linee di riferimento per i valori glicemici"""
+        fig.add_trace(go.Scatter(
         x=x_labels, y=[180] * len(x_labels),
         mode="lines", name="Glicemia superiore a 180",
         line=dict(color="red", dash="dash"), hoverinfo="skip"
     ))
     
-    y_low, y_high = [80] * len(x_labels), [130] * len(x_labels)
-    fig.add_trace(go.Scatter(
+        y_low, y_high = [80] * len(x_labels), [130] * len(x_labels)
+        fig.add_trace(go.Scatter(
         x=x_labels, y=y_low, mode="lines",
         line=dict(width=0), showlegend=False, hoverinfo="skip", legendgroup="norma"
     ))
-    fig.add_trace(go.Scatter(
+        fig.add_trace(go.Scatter(
         x=x_labels, y=y_high, mode="lines",
         line=dict(width=0), fill="tonexty",
         fillcolor="rgba(144,238,144,0.20)",
         name="Glicemia nella norma (80–130)",
         hoverinfo="skip", legendgroup="norma"
     ))
+        # === NOTIFICHE — HELPERS (MEDICO) ======================================
+    # #def _norm(ctx):
+    #     """Normalizza il contesto in etichette coerenti."""
+    #     if not ctx:
+    #         return None
+    #     c = str(ctx).strip().lower()
+    #     # possibili alias gestiti
+    #     mapping = {
+    #         "digiuno": "digiuno",
+    #         "a digiuno": "digiuno",
+    #         "prima_pasto": "prima_pasto",
+    #         "prima del pasto": "prima_pasto",
+    #         "preprandiale": "prima_pasto",
+    #         "dopo_pasto": "dopo_pasto",
+    #         "postprandiale": "dopo_pasto",
+    #         "dopo il pasto": "dopo_pasto",
+    #     }
+    #     return mapping.get(c, c)
+
+        # === NOTIFICHE — HELPERS (MEDICO) ======================================
+    def _fmt_ctx(m):
+        """Rende la frase da mostrare in base a momento_pasto + due_ore_pasto."""
+        c = (getattr(m, "momento_pasto", None) or "").strip().lower()
+        if c == "digiuno":
+            return "a digiuno"
+        if c == "prima_pasto":
+            return "prima del pasto"
+        if c == "dopo_pasto":
+            due = getattr(m, "due_ore_pasto", None)
+            if due is True:
+                return "dopo il pasto (≥ 2 ore)"
+            if due is False:
+                return "dopo il pasto (< 2 ore)"
+            return "dopo il pasto"
+        return None  # fallback
+
+    def _is_anomalo(val, m):
+        """Regole di anomalia basate sul modello Glicemia."""
+        if val is None:
+            return False
+        try:
+            v = float(val)
+        except Exception:
+            return False
+
+        # ipo sempre anomala
+        if v < 70:
+            return True
+
+        c = (getattr(m, "momento_pasto", None) or "").strip().lower()
+        if c in ("digiuno", "prima_pasto"):
+            return v < 80 or v > 130
+        if c == "dopo_pasto":
+            return v > 180
+
+        # contesto non specificato -> soglia prudente
+        return v > 180
+
+    @db_session
+    def build_alerts_for_doctor():
+        """Crea la lista di alert per il medico corrente (solo glicemie anomale)."""
+        medico = get_current_medico()
+        if not medico:
+            return []
+
+        alerts = []
+
+        #Per la aderenza della terapia e delle prescrizioni del medico
+        today_date = datetime.now().date()
+        now_iso = datetime.now().isoformat()
+        ALERT_STREAK_DAYS = 3
+
+        pazienti = list(medico.patients) if hasattr(medico, "patients") else []
+        for p in pazienti:
+            patient_label = f"{getattr(p, 'name', '')} {getattr(p, 'surname', '')}".strip()
+
+            # Per ogni terapia del paziente
+            for t in list(p.terapies):
+                start_date = t.data_inizio.date()
+                end_date = t.data_fine.date() if t.data_fine else None
+                if start_date > today_date:
+                    continue
+                if end_date is not None and end_date < today_date:
+                    continue
+
+                effective_end = min(today_date, end_date) if end_date else today_date
+                total_days = (effective_end - start_date).days + 1
+                total_days = max(1, total_days)
+
+                # Soglia adattiva per gestire terapie < 3 giorni
+                effective_streak_needed = min(ALERT_STREAK_DAYS, total_days)
+
+                # Conta giorni consecutivi (a ritroso) senza assunzioni del farmaco
+                missing_streak = 0
+                for d in range(effective_streak_needed):
+                    day = today_date - timedelta(days=d)
+                    if day < start_date:
+                        break  # non contare giorni prima dell'inizio terapia
+
+                    day_start = datetime.combine(day, datetime.min.time())
+                    next_day = day_start + timedelta(days=1)
+
+                    # Qualche assunzione registrata quel giorno per quel farmaco?
+
+                    has_intake = any(
+                    (a.nome_farmaco == t.nome_farmaco) and (day_start <= a.data_ora < next_day)
+                    for a in getattr(p, "assunzione", [])
+                    )
+
+                    
+                    if has_intake:
+                        break  # serie di "giorni senza" interrotta
+                    missing_streak += 1
+
+                if missing_streak >= effective_streak_needed:
+                    giorni_txt = "giorno" if missing_streak == 1 else "giorni"
+                    msg = (f"Il paziente {patient_label} non ha registrato assunzioni di "
+                           f"{t.nome_farmaco} negli ultimi {missing_streak} {giorni_txt} consecutivi."
+                           )
+                    alerts.append({
+                        "type": "aderenza",
+                        "patient_id": getattr(p, "username", None) or getattr(p, "id", None),
+                        "patient_name": patient_label or getattr(p, "username", ""),
+                        "drug_name": t.nome_farmaco,
+                        "streak_days": missing_streak,
+                        "timestamp": now_iso,  # quando generiamo l'alert
+                         "message": msg
+                         })
+
+
+        # Nessuna finestra temporale: prendo tutte le glicemie dei pazienti seguiti
+        pazienti = list(medico.patients) if hasattr(medico, "patients") else []
+
+        for p in pazienti:
+            uname = getattr(p, "username", None)
+            if not uname:
+                continue
+            name = f"{getattr(p, 'name', '')} {getattr(p, 'surname', '')}".strip()
+            
+            
+            # Tutte le glicemie del paziente
+            misure = list(p.rilevazione) 
+            for m in misure:
+                ts = getattr(m, "data_ora", None)
+                val = getattr(m, "valore", None)
+
+                if _is_anomalo(val, m):
+                    ctx_txt = _fmt_ctx(m)  # "a digiuno" | "prima del pasto" | "dopo il pasto (≥ 2 ore)" | None
+                    val_txt = f"{val:g} mg/dL" if val is not None else "valore non disponibile"
+                    ts_txt = ts.strftime("%d/%m/%Y %H:%M") if ts else "data sconosciuta"
+                    ctx_phrase = f" ({ctx_txt})" if ctx_txt else ""
+
+                    msg = (
+                        f"Il paziente {name} ha rilevato una glicemia anomala di "
+                        f"{val_txt}{ctx_phrase} in data {ts_txt}."
+                    )
+
+                    alerts.append({
+                        "type": "glicemia",
+                        "patient_id": getattr(p, "username", None) or getattr(p, "id", None),
+                        "patient_name": name or getattr(p, "username", ""),
+                        "value_mgdl": val,
+                        "context": ctx_txt,                           # es. "a digiuno", "prima del pasto", ...
+                        "timestamp": ts.isoformat() if ts else None,  # ISO per ordinamento
+                        "message": msg
+                    })
+
+        # Ordina i risultati dal più recente
+        def _ts(a):
+            t = a.get("timestamp")
+            try:
+                return _dt.fromisoformat(t) if t else _dt.min
+            except Exception:
+                return _dt.min
+
+        alerts.sort(key=_ts, reverse=True)
+        return alerts
+
+
+    # === NOTIFICHE — CALLBACKS (MEDICO) =====================================
+    @app.callback(
+        Output("alerts-store-medico", "data"),
+        Output("bell-button-medico", "color"),
+        Input("alerts-poll-medico", "n_intervals"),
+        prevent_initial_call=False
+    )
+    def refresh_doctor_alerts(_):
+        alerts = build_alerts_for_doctor()
+        bell_color = "danger" if alerts else "success"  # rosso se ci sono alert
+        return alerts, bell_color
+
+    @app.callback(
+        Output("alerts-modal-body-medico", "children"),
+        Input("alerts-store-medico", "data"),
+        prevent_initial_call=False
+    )
+    def render_doctor_alerts(alerts):
+        alerts = alerts or []
+        if not alerts:
+            return html.Div("Nessuna notifica.")
+
+        # lista semplice e leggibile; usa dbc se vuoi più styling
+        items = []
+        for a in alerts:
+            msg = a.get("message", "")
+            items.append(html.Div(msg, className="mb-2"))
+        return items
+
+    @app.callback(
+        Output("alerts-modal-medico", "is_open"),
+        Input("bell-button-medico", "n_clicks"),
+        Input("alerts-modal-close-medico", "n_clicks"),
+        State("alerts-modal-medico", "is_open"),
+        prevent_initial_call=True
+    )
+    def toggle_doctor_modal(_, __, is_open):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return is_open
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger in ("bell-button-medico", "alerts-modal-close-medico"):
+            return not is_open
+        return is_open

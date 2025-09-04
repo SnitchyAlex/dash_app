@@ -329,3 +329,20 @@ body {
 @media (prefers-reduced-motion: reduce){
   *{ animation: none !important; transition: none !important; }
 }
+
+/* lo stile del patient per la campanella del medico,per evitare eventuali conflitti, lo facciamo per sicurezza */ 
+#bell-button-medico{
+  position: relative;
+  border: none;
+  width: 48px;
+  height: 48px;
+  transition: background-color .3s ease, transform .2s ease, box-shadow .3s ease;
+}
+#bell-button-medico img{
+  width: 32px; height: 32px;
+  display: inline-block;
+  transform-origin: top center;
+  pointer-events: none;
+}
+#bell-button-medico.btn-danger img{ animation: bell-ring 2s ease-in-out infinite; }
+#bell-button-medico.btn-warning img{ animation: bell-ring 4s ease-in-out infinite; }

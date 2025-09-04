@@ -145,17 +145,43 @@ def get_doctor_dashboard(username):
         dbc.Row([
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader([
+                    dbc.CardHeader(
+                        className="d-flex align-items-center justify-content-between",#per allineare campanella a destra e mettere titolo a snx
+                        children=[
                         html.Div([
                             html.Img(src="/assets/doctor.png", 
                                 style={"width": "40px", "height": "40px", "margin-right": "10px"}),
                             html.H4("Area Medico", className="mb-0 doctor-title", style={"display": "inline-block"})
-                        ])
+                        ],className="d-flex align-items-center"),
+
+                        dbc.Button(
+                            html.Img(src="/assets/bell_ring.png", style={"width": "32px", "height": "32px"}),
+                            id="bell-button-medico",
+                            color="success",
+                            className="rounded-circle p-2 shadow-sm",
+                            n_clicks=0,
+                        ),
+
                     ]),
+                    dcc.Store(id="alerts-store-medico"),
+                    dcc.Interval(id="alerts-poll-medico", interval=60_000, n_intervals=0),
+                    dbc.Modal(
+                        id="alerts-modal-medico",
+                        is_open=False,
+                        children=[
+                            dbc.ModalHeader(dbc.ModalTitle("Notifiche pazienti")),
+                            dbc.ModalBody(id="alerts-modal-body-medico"),
+                            dbc.ModalFooter(
+                                dbc.Button("Chiudi", id="alerts-modal-close-medico", color="secondary")
+                                )
+                            ]
+                            ),    
                     dbc.CardBody([
                         html.P("Benvenuto nella tua area professionale. Qui puoi gestire i tuoi pazienti e le terapie.", 
                             className="card-text mb-4"),
-                        
+                        #per messaggi veloci    
+                        html.Div(id="meds-alert-container-medico", className="mb-3"),
+
                         # Bottoni dashboard
                         dbc.Row([
                             dbc.Col([create_dashboard_button("terapia", "Gestisci Terapie", "btn-gestisci-terapie")], 

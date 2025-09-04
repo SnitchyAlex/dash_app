@@ -664,7 +664,7 @@ def _day_bounds(d):
 
 def _check_patient_alerts(paziente):
     """
-    Verifica gli alert per il paziente usando EXISTS (evita gli errori interni di Pony).
+    Verifica gli alert per il paziente usando (evita gli errori interni di Pony).
     """
     alerts = []
     today = datetime.now().date()
@@ -716,8 +716,8 @@ def _check_patient_alerts(paziente):
             'icon': 'pills'
         })
 
-    # 3) Glicemie di oggi (EXISTS)
-    # #try:
+    # #3) Glicemie di oggi (EXISTS)
+    # try:
     #     glicemie_oggi = []
     #     for g in paziente.glicemias:
     #         if start <= g.data_ora < end:
@@ -734,7 +734,7 @@ def _check_patient_alerts(paziente):
     #         'icon': 'tint'
     #     })
 
-    return alerts
+    # return alerts
 
 
 
