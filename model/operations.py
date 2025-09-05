@@ -60,6 +60,7 @@ def initialize_db():
                 telefono='987654321',
                 # Attributi specifici del medico
                 specializzazione='Cardiologia',
+                email = 'mariorossi@gmail.it',
             )
             print(f"Created doctor: {medico.username}")
             
@@ -72,6 +73,7 @@ def initialize_db():
                 surname='Bianchi',
                 telefono='555666777',
                 # Attributi specifici del medico
+                email = 'laurabianchi@gmail.com',
                 specializzazione='Neurologia',
             )
             print(f"Created doctor: {medico2.username}")

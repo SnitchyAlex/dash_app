@@ -133,11 +133,12 @@ def _create_patient_buttons_grid():
         ("btn-miei-dati", "/assets/dati.png", "I Miei Dati", "btn-success"),
         ("btn-nuova-assunzione", "/assets/farmaco.png", "Nuova Assunzione", "btn-success"),
         ("btn-sintomi-trattamenti", "/assets/sintomi.png", "Sintomi e Trattamenti", "btn-success"),
-        ("btn-terapie", "/assets/terapia.png", "Le mie terapie", "btn-success")
+        ("btn-terapie", "/assets/terapia.png", "Le mie terapie", "btn-success"),
+        ("btn-messaggi", "/assets/messaggi.png", "Contatta il tuo medico di base", "btn-success")
     ]
     
     rows = []
-    for i in range(0, len(buttons), 2):
+    for i in range(0, 6, 2):
         cols = []
         for j in range(2):
             if i + j < len(buttons):
@@ -155,6 +156,21 @@ def _create_patient_buttons_grid():
                 cols.append(dbc.Col([], width=12, md=6, className="mb-3"))
         
         rows.append(dbc.Row(cols))
+
+        # Ultima riga con il bottone centrato
+    if len(buttons) > 6:
+        btn_id, icon, text, css_class = buttons[6]
+        rows.append(
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button([
+                        html.Img(src=icon, 
+                               style={"width": "35px", "height": "35px", "margin-right": "8px"}),
+                        text
+                    ], id=btn_id, className=f"{css_class} w-100", size="lg")
+                ], width=12, md=6, className="mb-3")
+            ], justify="center")
+        )
     
     return html.Div(rows)
 
@@ -788,3 +804,58 @@ def get_medication_alert():
             html.Em("Nuova Assunzione"), " qui sotto."
         ], style={"display": "inline"})
     ], color="danger", className="d-flex align-items-center alert-medication")
+
+def get_contact_doctor_view():
+    """Vista per contattare il medico di base"""
+    return dbc.Card([
+        dbc.CardHeader([
+            html.H5("Contatta il tuo Medico di Base", className="mb-0 text-primary")
+        ]),
+        dbc.CardBody([
+            html.Div(id="doctor-contact-info"),
+            _create_back_button("btn-torna-menu-messaggi")
+        ])
+    ], className="mt-3")
+
+
+def get_doctor_contact_display(medico):
+    """Visualizza le informazioni di contatto del medico"""
+    if not medico:
+        return dbc.Alert([
+            html.H5("Medico non assegnato", className="alert-heading"),
+            html.P("Non hai ancora un medico di riferimento assegnato."),
+            html.P("Contatta gli amministartori per l'assegnazione di un medico di base.", className="text-muted")
+        ], color="warning", className="mt-3")
+    
+    medico_nome_completo = f"Dr. {medico.name} {medico.surname}"
+    
+    return dbc.Card([
+        dbc.CardBody([
+            html.Div([
+                html.Img(src="/assets/doctor.png", 
+                        style={"width": "60px", "height": "60px", "margin-right": "15px"}),
+                html.Div([
+                    html.H4(medico_nome_completo, className="text-primary mb-2"),
+                    html.P("Il tuo medico di base", className="text-muted mb-0")
+                ], style={"display": "inline-block", "vertical-align": "top"})
+            ], className="d-flex align-items-center mb-4"),
+            
+            dbc.Alert([
+                html.H6("Informazioni di contatto:", className="alert-heading mb-3"),
+                html.Div([
+                    html.Strong("Email: "),
+                    html.Span(medico.email, className="me-3"),
+                    html.A([
+                        html.Img(src="/assets/gmail.png", 
+                                style={"width": "32px", "height": "32px", "margin-right": "8px"}),
+                        "Invia Email"
+                    ], 
+                    href=f"https://mail.google.com/mail/?view=cm&fs=1&to={medico.email}&su=Richiesta%20assistenza%20medica&body=Gentile%20{medico_nome_completo},%0D%0A%0D%0AHo%20bisogno%20della%20sua%20assistenza%20per%20quanto%20riguarda:%0D%0A%0D%0A[Descrivi%20qui%20il%20tuo%20problema%20o%20domanda]%0D%0A%0D%0ADistinti%20saluti", 
+                    target="_blank",
+                    className="btn btn-outline-primary btn-sm d-inline-flex align-items-center text-decoration-none")
+                ], className="d-flex align-items-center mb-2"),
+                html.P("Clicca sul bottone Gmail per intergire con il tuo medico di base", 
+                       className="text-muted small")
+            ], color="info", className="mb-3"),
+        ])
+    ], className="mt-3", style={"border-left": "4px solid #0d6efd"})

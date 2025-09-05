@@ -346,6 +346,42 @@ def _register_data_callbacks(app):
             return get_patient_therapies_display(terapie)
         except Exception as e:
             return get_error_message(f"Errore durante il caricamento delle terapie: {str(e)}")
+        
+    @app.callback(
+        Output('patient-content', 'children', allow_duplicate=True),
+        Input('btn-messaggi', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def show_contact_doctor(n_clicks):
+        if n_clicks:
+            return get_contact_doctor_view()
+        return dash.no_update
+
+    @app.callback(
+        Output('doctor-contact-info', 'children'),
+        Input('patient-content', 'children'),
+        prevent_initial_call=False
+    )
+    @db_session
+    def load_doctor_contact_info(children):
+        if not children or not isinstance(children, dict):
+            return dash.no_update
+
+        try:
+            children_str = str(children)
+            if 'doctor-contact-info' not in children_str:
+                return dash.no_update
+        except Exception:
+            return dash.no_update
+
+        try:
+            paziente = Paziente.get(username=current_user.username)
+            if not paziente:
+                return get_error_message("Errore: paziente non trovato!")
+            
+            return get_doctor_contact_display(paziente.medico_riferimento)
+        except Exception as e:
+            return get_error_message(f"Errore durante il caricamento delle informazioni del medico: {str(e)}")
 
 
 def _register_chart_callbacks(app):
@@ -507,7 +543,7 @@ def _register_navigation_callbacks(app):
     """Registra i callbacks per la navigazione"""
 
     # Pulsanti "Torna al Menu"
-    for btn_id in ['btn-torna-menu-paziente', 'btn-torna-menu-grafici', 'btn-torna-menu-terapie-paziente']:
+    for btn_id in ['btn-torna-menu-paziente', 'btn-torna-menu-grafici', 'btn-torna-menu-terapie-paziente', 'btn-torna-menu-miei-dati', 'btn-torna-menu-messaggi']:
         @app.callback(
             Output('patient-content', 'children', allow_duplicate=True),
             Input(btn_id, 'n_clicks'),

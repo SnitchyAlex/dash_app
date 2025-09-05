@@ -60,7 +60,7 @@ def create_back_to_menu_button(text="Torna al Menu Principale", color="info"):
         className="btn-info" if color == "info" else ""
     )
 
-def create_patient_selector(pazienti, dropdown_id, label="Seleziona Paziente *"):
+def create_patient_selector(pazienti, dropdown_id, label="Seleziona Paziente *", selected_value=None):
     """Crea selector per pazienti"""
     pazienti_options = [
         {"label": f"{p.name} {p.surname} ({p.username})", "value": p.username} 
@@ -73,6 +73,7 @@ def create_patient_selector(pazienti, dropdown_id, label="Seleziona Paziente *")
             dbc.Select(
                 id=dropdown_id,
                 options=pazienti_options,
+                value=selected_value,
                 placeholder="Seleziona il paziente...",
                 className="form-control"
             )
@@ -311,9 +312,6 @@ def get_assegna_terapia_form(pazienti):
                     "", "date", width=12, md=6)
             ], className="mb-3"),
             
-            create_textarea("textarea-indicazioni-terapia", "Indicazioni aggiuntive", 
-                "es. Assumere con abbondante acqua, non assumere se glicemia < 80 mg/dL..."),
-            
             create_textarea("textarea-note-terapia", "Note (opzionale)", 
                 "Eventuali note aggiuntive per il paziente...", rows=2),
             
@@ -460,7 +458,7 @@ def create_terapia_success_buttons(btn1_config, btn2_config=None):
             dbc.Row([
                 dbc.Col([
                     dbc.Button(btn1_config['text'], id=btn1_config['id'], 
-                        color=btn1_config['color'], size="sm", className="w-100")
+                        color=btn1_config['color'], size="lg", className="w-100")
                 ], width=6),
                 dbc.Col([
                     dbc.Button(btn2_config['text'], id=btn2_config['id'], 
@@ -549,10 +547,20 @@ def get_edit_terapia_form(terapia, pazienti):
                 html.Strong("Stai modificando: "),
                 f"{terapia.nome_farmaco} per {terapia.paziente.name} {terapia.paziente.surname}"
             ], color="info", className="mb-4"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Paziente selezionato:", className="form-label fw-bold"),
+                    html.Div([
+                        html.P(f"{terapia.paziente.name} {terapia.paziente.surname} ({terapia.paziente.username})", 
+                               className="form-control-plaintext fw-bold text-primary mb-0")
+                    ], className="p-2 bg-light rounded border")
+                ], width=12)
+            ], className="mb-3"),
             
-            create_patient_selector(pazienti, "select-paziente-terapia-edit"),
+            # Hidden field per mantenere il paziente selezionato
+            html.Div(terapia.paziente.username, id="select-paziente-terapia-edit", style={"display": "none"}),
             
-            # Form fields precompilati (mantengo la logica originale ma piÃ¹ compatta)
+            # Form fields precompilati
             dbc.Row([
                 create_form_input("input-nome-farmaco-terapia-edit", "Nome del farmaco *", 
                     value=terapia.nome_farmaco, width=12, md=6),
@@ -560,7 +568,36 @@ def get_edit_terapia_form(terapia, pazienti):
                     value=terapia.dosaggio_per_assunzione, width=12, md=6)
             ], className="mb-3"),
             
-            # Altri campi seguono lo stesso pattern...
+            dbc.Row([
+                create_form_input("input-assunzioni-giornaliere-edit", "Numero di assunzioni giornaliere *",
+                    value=str(terapia.assunzioni_giornaliere), input_type="number", width=12, md=6),
+                dbc.Col([
+                    dbc.Label("Indicazioni", className="form-label"),
+                    dbc.Select(
+                        id="select-indicazioni-terapia-edit",
+                        options=[
+                            {"label": "Prima dei pasti", "value": "prima_pasti"},
+                            {"label": "Dopo i pasti", "value": "dopo_pasti"},
+                            {"label": "Lontano dai pasti", "value": "lontano_pasti"},
+                            {"label": "Al mattino", "value": "mattino"},
+                            {"label": "Alla sera", "value": "sera"},
+                            {"label": "Secondo necessità", "value": "secondo_necessita"}
+                        ],
+                        value=terapia.indicazioni,
+                        className="form-control"
+                    )
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            dbc.Row([
+                create_form_input("input-data-inizio-terapia-edit", "Data inizio terapia *", 
+                    value=terapia.data_inizio.strftime('%Y-%m-%d'), input_type="date", width=12, md=6),
+                create_form_input("input-data-fine-terapia-edit", "Data fine terapia (se applicabile)", 
+                    value=terapia.data_fine.strftime('%Y-%m-%d') if terapia.data_fine else "", input_type="date", width=12, md=6)
+            ], className="mb-3"),
+            create_textarea("textarea-note-terapia-edit", "Note (opzionale)", 
+                value=terapia.note or "", rows=2),
+            
             html.Div([
                 dbc.Button("Salva Modifiche", id="btn-salva-modifiche-terapia", 
                     color="success", size="lg", className="me-2"),
@@ -568,7 +605,6 @@ def get_edit_terapia_form(terapia, pazienti):
             ], className="d-grid gap-2 d-md-flex justify-content-md-end")
         ])
     ], className="mt-3")
-
 def get_andamento_glicemico_medico_view():
     return dbc.Card([
         dbc.CardHeader(

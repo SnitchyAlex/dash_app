@@ -197,7 +197,6 @@ def register_doctor_callbacks(app):
          State('input-dosaggio-terapia', 'value'),
          State('input-assunzioni-giornaliere', 'value'),
          State('select-indicazioni-terapia', 'value'),
-         State('textarea-indicazioni-terapia', 'value'),
          State('input-data-inizio-terapia', 'value'),
          State('input-data-fine-terapia', 'value'),
          State('textarea-note-terapia', 'value')],
@@ -205,7 +204,7 @@ def register_doctor_callbacks(app):
     )
     @db_session
     def save_terapia(n_clicks, paziente_id, nome_farmaco, dosaggio, assunzioni_giornaliere,
-                     indicazioni_select, indicazioni_custom, data_inizio, data_fine, note):
+                     indicazioni_select, data_inizio, data_fine, note):
         if not n_clicks:
             return dash.no_update
 
@@ -227,15 +226,9 @@ def register_doctor_callbacks(app):
             if medico not in paziente.doctors:
                 paziente.doctors.add(medico)
                 commit()
-
-            # Processa indicazioni
-            indicazioni_complete = []
-            if indicazioni_select:
-                indicazioni_complete.append(get_indicazioni_display(indicazioni_select))
-            if indicazioni_custom and indicazioni_custom.strip():
-                indicazioni_complete.append(indicazioni_custom.strip())
             
-            indicazioni_finali = ". ".join(indicazioni_complete) if indicazioni_complete else ""
+            indicazioni_finali = get_indicazioni_display(indicazioni_select) if indicazioni_select else ""
+
 
             # Converti date
             data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d') if data_inizio else None
@@ -387,12 +380,11 @@ def register_doctor_callbacks(app):
         Output('doctor-content', 'children', allow_duplicate=True),
         Input('btn-salva-modifiche-terapia', 'n_clicks'),
         [State('hidden-terapia-key', 'children'),
-         State('select-paziente-terapia-edit', 'value'),
+         State('select-paziente-terapia-edit', 'children'),
          State('input-nome-farmaco-terapia-edit', 'value'),
          State('input-dosaggio-terapia-edit', 'value'),
          State('input-assunzioni-giornaliere-edit', 'value'),
          State('select-indicazioni-terapia-edit', 'value'),
-         State('textarea-indicazioni-terapia-edit', 'value'),
          State('input-data-inizio-terapia-edit', 'value'),
          State('input-data-fine-terapia-edit', 'value'),
          State('textarea-note-terapia-edit', 'value')],
@@ -400,7 +392,7 @@ def register_doctor_callbacks(app):
     )
     @db_session
     def save_therapy_modifications(n_clicks, terapia_key, paziente_id, nome_farmaco, dosaggio,
-                                  assunzioni_giornaliere, indicazioni_select, indicazioni_custom,
+                                  assunzioni_giornaliere, indicazioni_select,
                                   data_inizio, data_fine, note):
         if not n_clicks:
             return dash.no_update
@@ -429,13 +421,8 @@ def register_doctor_callbacks(app):
                 return get_error_message("Nuovo paziente non trovato!")
 
             # Processa indicazioni
-            indicazioni_complete = []
-            if indicazioni_select:
-                indicazioni_complete.append(get_indicazioni_display(indicazioni_select))
-            if indicazioni_custom and indicazioni_custom.strip():
-                indicazioni_complete.append(indicazioni_custom.strip())
-            
-            indicazioni_finali = ". ".join(indicazioni_complete) if indicazioni_complete else ""
+            indicazioni_finali = get_indicazioni_display(indicazioni_select) if indicazioni_select else ""
+
 
             # Converti date
             data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d') if data_inizio else None

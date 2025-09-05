@@ -185,6 +185,15 @@ def get_create_user_form():
             html.Div(id="medico-fields", style={'display': 'none'}, children=[
                 dbc.Row([
                     dbc.Col([
+                        dbc.Label("Email *", className="form-label text-danger"),
+                        dbc.Input(
+                            id="new-email", 
+                            type="email", 
+                            placeholder="Inserisci la tua email")
+                    ], md=12)
+                ], className="mb-3"),
+                dbc.Row([
+                    dbc.Col([
                         dbc.Label("Specializzazione", className="form-label"),
                         dbc.Input(id="new-specializzazione", type="text", 
                                  placeholder="Es: Cardiologia, Neurologia... (opzionale)")
@@ -332,6 +341,10 @@ def get_doctors_list():
                     html.P([
                         html.Strong("Telefono: "), 
                         medico.telefono or "Non disponibile"
+                    ], className="card-text mb-1"),
+                    html.P([
+                        html.Strong("email: "), 
+                        medico.email
                     ], className="card-text mb-1"),
                     html.P([
                         html.Strong("Pazienti assegnati: "), 
