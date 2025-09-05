@@ -854,7 +854,7 @@ def get_doctor_contact_display(medico):
                     target="_blank",
                     className="btn btn-outline-primary btn-sm d-inline-flex align-items-center text-decoration-none")
                 ], className="d-flex align-items-center mb-2"),
-                html.P("Clicca sul bottone Gmail per intergire con il tuo medico di base", 
+                html.P("Clicca sul bottone Gmail per intergire con il tuo medico di riferimento", 
                        className="text-muted small")
             ], color="info", className="mb-3"),
         ])
