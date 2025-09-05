@@ -1195,14 +1195,19 @@ def register_doctor_callbacks(app):
 
                 if missing_streak >= effective_streak_needed:
                     giorni_txt = "giorno" if missing_streak == 1 else "giorni"
+                    dosaggio = getattr(t, "dosaggio_per_assunzione", None)
+                    dosaggio_txt = f" (dosaggio: {dosaggio})" if dosaggio else ""
+
+                    
                     msg = (f"Il paziente {patient_label} non ha registrato assunzioni di "
-                           f"{t.nome_farmaco} negli ultimi {missing_streak} {giorni_txt} consecutivi."
+                           f"{t.nome_farmaco}{dosaggio_txt} negli ultimi {missing_streak} {giorni_txt} consecutivi."
                            )
                     alerts.append({
                         "type": "aderenza",
                         "patient_id": getattr(p, "username", None) or getattr(p, "id", None),
                         "patient_name": patient_label or getattr(p, "username", ""),
                         "drug_name": t.nome_farmaco,
+                        "dosaggio_per_assunzione": dosaggio,
                         "streak_days": missing_streak,
                         "timestamp": now_iso,  # quando generiamo l'alert
                          "message": msg
