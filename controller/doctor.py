@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime as _dt
 import json
-
+import re 
 from model.terapia import Terapia
 from model.medico import Medico
 from model.paziente import Paziente
@@ -1123,6 +1123,37 @@ def register_doctor_callbacks(app):
 
         # contesto non specificato -> soglia prudente
         return v > 180
+    def _norm_txt(s: str) -> str:
+        """Normalizza per confronti robusti: lowercase + spazi normalizzati."""
+        return " ".join((s or "").strip().lower().split())
+    import re
+
+    def _same_drug(a_nome: str, t_nome: str) -> bool:
+        # case-insensitive e IGNORA tutti gli spazi
+        norm = lambda s: re.sub(r"\s+", "", (s or "").strip().lower())
+        return norm(a_nome) == norm(t_nome)
+
+    
+    #per fare in modo di ignorare gli spazi presenti se ci fossero
+    def _same_dose(a_dose: str, t_dose: str) -> bool:
+        # case-insensitive e IGNORA tutti gli spazi interni
+        norm = lambda s: re.sub(r"\s+", "", (s or "").strip().lower())
+        return norm(a_dose) == norm(t_dose)
+
+
+    def _matches_therapy(a, t) -> bool:
+        """
+        True se l'assunzione 'a' corrisponde alla terapia 't'.
+        Se esiste Assunzione.terapia (FK opzionale), usala; altrimenti confronta nome + dosaggio.
+        """
+        if getattr(a, "terapia", None) is not None:
+            return a.terapia == t
+    #fa in modo che anche le maisucole, minuscole,spazi o non spazi vengano considerati validi lo stesso i valori
+    #non vengono visti in modo diverso ad esempio Tachipirina500 ==tachi pirina 500
+        same_drug = _same_drug(a.nome_farmaco, t.nome_farmaco)
+        same_dose = _same_dose(a.dosaggio, t.dosaggio_per_assunzione)
+        return same_drug and same_dose
+
 
     @db_session
     def build_alerts_for_doctor():
@@ -1170,10 +1201,10 @@ def register_doctor_callbacks(app):
 
                     # Qualche assunzione registrata quel giorno per quel farmaco?
 
-                    has_intake = any(
-                    (a.nome_farmaco == t.nome_farmaco) and (day_start <= a.data_ora < next_day)
-                    for a in getattr(p, "assunzione", [])
-                    )
+                    has_intake = [
+                    a for a in getattr(p, "assunzione", [])
+                    if (day_start <= a.data_ora < next_day) and _matches_therapy(a, t)
+                    ]
 
                     
                     if has_intake:
