@@ -766,8 +766,9 @@ def _check_patient_alerts(paziente):
         df = _to_date(t.data_fine)
         if (di is None or di <= today) and (df is None or df >= today):
             terapie_attive += 1
-
-    if terapie_attive > 0 and not has_today:
+    #in questo modo il paziente vede l'alert/messaggio solo quando il medico gli assegna terapie.
+    #alert non appare se non ha terapie, se le terapie sono scadute o sono state eliminate
+    if terapie_attive > 0: #and not has_today:
         alerts.append({
             'type': 'info',
             'title': f'Hai {terapie_attive} terapie attive',
