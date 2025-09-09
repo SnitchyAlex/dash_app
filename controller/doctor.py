@@ -1203,9 +1203,19 @@ def register_doctor_callbacks(app):
                     dosaggio = getattr(t, "dosaggio_per_assunzione", None)
                     dosaggio_txt = f" (dosaggio: {dosaggio})" if dosaggio else ""
 
+                    start_str = start_date.strftime("%d/%m/%Y")
+                    if t.data_fine:
+                        end_str = t.data_fine.strftime("%d/%m/%Y")
+                        periodo_label = f"dal {start_str} al {end_str}"
+                        is_continuativa = False
+                    else:
+                        end_str = None
+                        periodo_label = f"dal {start_str} (senza data di fine — continuativa)"
+                        is_continuativa = True
                     
                     msg = (f"Il paziente {patient_label} non ha registrato assunzioni di "
                            f"{t.nome_farmaco}{dosaggio_txt} negli ultimi {missing_streak} {giorni_txt} consecutivi."
+                           f"Terapia {periodo_label}."
                            )
                     alerts.append({
                         "type": "aderenza",
@@ -1215,7 +1225,10 @@ def register_doctor_callbacks(app):
                         "dosaggio_per_assunzione": dosaggio,
                         "streak_days": missing_streak,
                         "timestamp": now_iso,  # quando generiamo l'alert
-                         "message": msg
+                        "message": msg,
+                        "therapy_start": start_str,
+                        "therapy_end": end_str,
+                        "therapy_continuativa": is_continuativa
                          })
 
 
