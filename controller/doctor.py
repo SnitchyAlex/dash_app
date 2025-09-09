@@ -1066,26 +1066,8 @@ def register_doctor_callbacks(app):
         name="Glicemia nella norma (80–130)",
         hoverinfo="skip", legendgroup="norma"
     ))
-        # === NOTIFICHE — HELPERS (MEDICO) ======================================
-    # #def _norm(ctx):
-    #     """Normalizza il contesto in etichette coerenti."""
-    #     if not ctx:
-    #         return None
-    #     c = str(ctx).strip().lower()
-    #     # possibili alias gestiti
-    #     mapping = {
-    #         "digiuno": "digiuno",
-    #         "a digiuno": "digiuno",
-    #         "prima_pasto": "prima_pasto",
-    #         "prima del pasto": "prima_pasto",
-    #         "preprandiale": "prima_pasto",
-    #         "dopo_pasto": "dopo_pasto",
-    #         "postprandiale": "dopo_pasto",
-    #         "dopo il pasto": "dopo_pasto",
-    #     }
-    #     return mapping.get(c, c)
-
-        # === NOTIFICHE — HELPERS (MEDICO) ======================================
+     
+    #per alert  medico
     def _fmt_ctx(m):
         """Rende la frase da mostrare in base a momento_pasto + due_ore_pasto."""
         c = (getattr(m, "momento_pasto", None) or "").strip().lower()
