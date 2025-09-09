@@ -1167,7 +1167,7 @@ def register_doctor_callbacks(app):
         #Per la aderenza della terapia e delle prescrizioni del medico
         today_date = datetime.now().date()
         now_iso = datetime.now().isoformat()
-        ALERT_STREAK_DAYS = 3
+        
 
         pazienti = list(medico.patients) if hasattr(medico, "patients") else []
         for p in pazienti:
@@ -1181,37 +1181,42 @@ def register_doctor_callbacks(app):
                     continue
                 if end_date is not None and end_date < today_date:
                     continue
+                #in questo modo mi genera aler quando ho 1 terapia di 1 giorno e non seguo
+                #mi genera alert quando ho una terapia di solo 2 giorni che non seguo
+                #mi genera alert quando ho una terapia di 3giorni o piu con data fine o senza data fine
+                ## 1 giorno -> 1; 2 giorni -> 2; >=3 giorni o senza data_fine -> 3 
+                
+                if t.data_fine:
+                    planned_days = (t.data_fine.date() - start_date).days + 1
+                else:
+                    planned_days = None  # terapia “aperta”
+                base_thresh = planned_days if planned_days in (1, 2) else 3
 
-                effective_end = min(today_date, end_date) if end_date else today_date
-                total_days = (effective_end - start_date).days + 1
-                total_days = max(1, total_days)
-
-                # Soglia adattiva per gestire terapie < 3 giorni
-                effective_streak_needed = min(ALERT_STREAK_DAYS, total_days)
+                
 
                 # Conta giorni consecutivi (a ritroso) senza assunzioni del farmaco
                 missing_streak = 0
-                for d in range(effective_streak_needed):
-                    day = today_date - timedelta(days=d)
+                for i in range(base_thresh):
+                    day = today_date - timedelta(days=i)
                     if day < start_date:
-                        break  # non contare giorni prima dell'inizio terapia
+                        break  # non andare prima dell'inizio terapia
 
                     day_start = datetime.combine(day, datetime.min.time())
                     next_day = day_start + timedelta(days=1)
 
-                    # Qualche assunzione registrata quel giorno per quel farmaco?
+                    has_matching_intake = any(
+                        (day_start <= a.data_ora < next_day) and _matches_therapy(a, t)
+                        for a in getattr(p, "assunzione", [])
+                    )
 
-                    has_intake = [
-                    a for a in getattr(p, "assunzione", [])
-                    if (day_start <= a.data_ora < next_day) and _matches_therapy(a, t)
-                    ]
-
-                    
-                    if has_intake:
-                        break  # serie di "giorni senza" interrotta
+                    if has_matching_intake:
+                        break  # interrompe la serie di giorni mancanti
                     missing_streak += 1
 
-                if missing_streak >= effective_streak_needed:
+                    
+                    
+
+                if missing_streak >= base_thresh:
                     giorni_txt = "giorno" if missing_streak == 1 else "giorni"
                     dosaggio = getattr(t, "dosaggio_per_assunzione", None)
                     dosaggio_txt = f" (dosaggio: {dosaggio})" if dosaggio else ""
