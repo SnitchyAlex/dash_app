@@ -67,10 +67,9 @@ def register_admin_callbacks(app):
             options = [{"label": "Nessun medico di riferimento", "value": ""}]
             
             for medico in medici:
-                specializzazione = f" - {medico.specializzazione}" if medico.specializzazione else ""
                 options.append({
-                    "label": f"Dr. {medico.name} {medico.surname}{specializzazione}",
-                    "value": medico.username  # Usa username invece di id
+                    "label": f"Dr. {medico.name} {medico.surname}",
+                    "value": medico.username
                 })
             
             return options
@@ -103,7 +102,7 @@ def register_admin_callbacks(app):
             except:
                 return None, False, "Inserisci età (opzionale)"
         else:
-            # Se non c'è data di nascita, permetti inserimento manuale dell'età
+            # Se non c'è data di nascita, permetti inserimento manuale dell'età 
             return None, False, "Inserisci età (opzionale)"
         
     def validate_email(email):
@@ -124,7 +123,6 @@ def register_admin_callbacks(app):
          Output('new-surname', 'value'),
          Output('new-telefono', 'value'),
          Output('new-role', 'value'),
-         Output('new-specializzazione', 'value'),
          Output('new-email', 'value'),
          Output('new-birth-date', 'value'),
          Output('new-codice-fiscale', 'value'),
@@ -136,7 +134,6 @@ def register_admin_callbacks(app):
          State('new-surname', 'value'),
          State('new-telefono', 'value'),
          State('new-role', 'value'),
-         State('new-specializzazione', 'value'),
          State('new-email', 'value'),
          State('new-birth-date', 'value'),
          State('new-eta', 'value'),
@@ -146,22 +143,22 @@ def register_admin_callbacks(app):
     )
     @db_session
     def create_new_user(submit_clicks, username, password, name, surname, 
-                       telefono, role, specializzazione, email, birth_date, eta, codice_fiscale, medico_riferimento_id):
+                       telefono, role, email, birth_date, eta, codice_fiscale, medico_riferimento_id):
         
         if not submit_clicks:
-            return [dash.no_update] * 12
+            return [dash.no_update] * 11
         
         # Validazione campi obbligatori
         if not all([username, password, name, surname, role]):
-            return [dbc.Alert('Tutti i campi obbligatori devono essere compilati!', color='danger')] + [dash.no_update] * 11
+            return [dbc.Alert('Tutti i campi obbligatori devono essere compilati!', color='danger')] + [dash.no_update] * 10
         
         # Validazione email obbligatoria per medici
         if role == 'medico':
             if not email or not email.strip():
-                return [dbc.Alert('L\'email è obbligatoria per i medici!', color='danger')] + [dash.no_update] * 11
+                return [dbc.Alert('L\'email è obbligatoria per i medici!', color='danger')] + [dash.no_update] * 10
             
             if not validate_email(email.strip()):
-                return [dbc.Alert('Il formato dell\'email non è valido!', color='danger')] + [dash.no_update] * 11
+                return [dbc.Alert('Il formato dell\'email non è valido!', color='danger')] + [dash.no_update] * 10
         
         if role == 'paziente':
             # Validazione età se inserita manualmente (senza data di nascita)
@@ -169,25 +166,25 @@ def register_admin_callbacks(app):
                 try:
                     eta_int = int(eta)
                     if eta_int < 0 or eta_int > 125:
-                        return [dbc.Alert('L\'età deve essere compresa tra 0 e 125 anni!', color='danger')] + [dash.no_update] * 11
+                        return [dbc.Alert('L\'età deve essere compresa tra 0 e 125 anni!', color='danger')] + [dash.no_update] * 10
                 except (ValueError, TypeError):
-                    return [dbc.Alert('L\'età deve essere un numero valido!', color='danger')] + [dash.no_update] * 11
+                    return [dbc.Alert('L\'età deve essere un numero valido!', color='danger')] + [dash.no_update] * 10
             
             # Validazione data di nascita
             if birth_date:
                 try:
                     birth_date_obj = datetime.strptime(birth_date, '%Y-%m-%d')
                     if birth_date_obj.year < 1900:
-                        return [dbc.Alert('La data di nascita non può essere precedente al 1900!', color='danger')] + [dash.no_update] * 11
+                        return [dbc.Alert('La data di nascita non può essere precedente al 1900!', color='danger')] + [dash.no_update] * 10
                     if birth_date_obj > datetime.now():
-                        return [dbc.Alert('La data di nascita non può essere nel futuro!', color='danger')] + [dash.no_update] * 11
+                        return [dbc.Alert('La data di nascita non può essere nel futuro!', color='danger')] + [dash.no_update] * 10
                 except:
-                    return [dbc.Alert('Formato data non valido!', color='danger')] + [dash.no_update] * 11
+                    return [dbc.Alert('Formato data non valido!', color='danger')] + [dash.no_update] * 10
 
         try:
-            # Controlla se l'utente esiste già
+            # Controlla se l'utente esiste già 
             if get_user_by_username(username):
-                return [dbc.Alert(f'Username "{username}" già esistente!', color='danger')] + [dash.no_update] * 11
+                return [dbc.Alert(f'Username "{username}" già esistente!', color='danger')] + [dash.no_update] * 10
             
             # Crea l'utente in base al ruolo
             from werkzeug.security import generate_password_hash
@@ -200,8 +197,7 @@ def register_admin_callbacks(app):
                     surname=surname,
                     telefono=telefono if telefono else '',
                     is_admin=False,
-                    specializzazione=specializzazione or None,
-                    email = email
+                    email=email
                 )
                 
             elif role == 'paziente':
@@ -209,12 +205,12 @@ def register_admin_callbacks(app):
                 medico_rif = None
                 if medico_riferimento_id and medico_riferimento_id != "":
                     try:
-                        medico_rif = Medico.get(username=medico_riferimento_id)  # Usa username invece di id
+                        medico_rif = Medico.get(username=medico_riferimento_id)
                         if not medico_rif:
-                            return [dbc.Alert('Medico di riferimento non trovato!', color='danger')] + [dash.no_update] * 11
+                            return [dbc.Alert('Medico di riferimento non trovato!', color='danger')] + [dash.no_update] * 10
                     except Exception as e:
                         print(f"Errore nel recupero medico di riferimento: {e}")
-                        return [dbc.Alert('Errore nel recupero del medico di riferimento!', color='danger')] + [dash.no_update] * 11
+                        return [dbc.Alert('Errore nel recupero del medico di riferimento!', color='danger')] + [dash.no_update] * 10
                 
                 paziente = Paziente(
                     username=username,
@@ -230,7 +226,6 @@ def register_admin_callbacks(app):
                 )
                 
                 # Se c'è un medico di riferimento, aggiungilo automaticamente anche alla relazione doctors
-                # Pony ORM gestisce automaticamente le relazioni many-to-many, quindi ha aggiunto anche patients
                 if medico_rif:
                     paziente.doctors.add(medico_rif)
                 
@@ -240,7 +235,7 @@ def register_admin_callbacks(app):
                     password_hash=generate_password_hash(password),
                     name=name,
                     surname=surname,
-                    telefono= telefono if telefono else '',
+                    telefono=telefono if telefono else '',
                     is_admin=True,
                 )
             
@@ -251,11 +246,11 @@ def register_admin_callbacks(app):
             if role == 'paziente' and medico_rif:
                 success_message += f' Medico di riferimento: Dr. {medico_rif.name} {medico_rif.surname}'
             
-            return [dbc.Alert(success_message, color='success')] + [''] * 11
+            return [dbc.Alert(success_message, color='success')] + [''] * 10
             
         except Exception as e:
             print(f"Errore durante la creazione dell'utente: {e}")
-            return [dbc.Alert(f'Errore durante la creazione: {str(e)}', color='danger')] + [dash.no_update] * 11
+            return [dbc.Alert(f'Errore durante la creazione: {str(e)}', color='danger')] + [dash.no_update] * 10
     
     # Callback per mostrare/nascondere i campi specifici in base al ruolo
     @app.callback(
@@ -309,9 +304,6 @@ def register_admin_callbacks(app):
             # Non permettere di eliminare admin
             if user_to_delete.is_admin:
                 return dbc.Alert('Non è possibile eliminare un utente amministratore!', color='danger'), dash.no_update
-
-            # if hasattr(current_user, 'username') and current_user.username == selected_username:
-            # return dbc.Alert('Non puoi eliminare il tuo stesso account!', color='danger'), dash.no_update
         
             # Elimina l'utente con le sue relazioni
             success, message = delete_user_with_relations(selected_username)

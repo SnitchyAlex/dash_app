@@ -119,9 +119,9 @@ def get_admin_dashboard():
                         ], className="alert-heading"),
                         html.P("Seleziona una delle opzioni sopra per iniziare a gestire il sistema."),
                         html.Hr(),
-                        html.P("🔹 Crea nuovi utenti per medici o pazienti"),
-                        html.P("🔹 Visualizza liste complete di medici e pazienti"),
-                        html.P("🔹 Elimina utenti quando necessario")
+                        html.P("📹 Crea nuovi utenti per medici o pazienti"),
+                        html.P("📹 Visualizza liste complete di medici e pazienti"),
+                        html.P("📹 Elimina utenti quando necessario")
                     ], color="light", className="mb-4")
                 ])
             ])
@@ -190,13 +190,6 @@ def get_create_user_form():
                             id="new-email", 
                             type="email", 
                             placeholder="Inserisci la tua email")
-                    ], md=12)
-                ], className="mb-3"),
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Label("Specializzazione", className="form-label"),
-                        dbc.Input(id="new-specializzazione", type="text", 
-                                 placeholder="Es: Cardiologia, Neurologia... (opzionale)")
                     ], md=12)
                 ], className="mb-3")
             ]),
@@ -295,7 +288,6 @@ def get_delete_user_form():
                     "Elimina Utente"
                 ], id="submit-delete-user", 
                 color="danger", 
-
                 className="me-2"),
                 
                 dbc.Button([
@@ -335,15 +327,11 @@ def get_doctors_list():
                         html.Strong("Username: "), medico.username
                     ], className="card-text mb-1"),
                     html.P([
-                        html.Strong("Specializzazione: "), 
-                        medico.specializzazione or "Non specificata"
-                    ], className="card-text mb-1"),
-                    html.P([
                         html.Strong("Telefono: "), 
                         medico.telefono or "Non disponibile"
                     ], className="card-text mb-1"),
                     html.P([
-                        html.Strong("email: "), 
+                        html.Strong("Email: "), 
                         medico.email
                     ], className="card-text mb-1"),
                     html.P([
@@ -411,8 +399,7 @@ def get_patients_list():
                     ], className="card-text mb-1"),
                     html.P([
                         html.Strong("Medico di riferimento: "), 
-                        f"Dr. {paziente.medico_riferimento.name} {paziente.medico_riferimento.surname}" if paziente.medico_riferimento else "Non assegnato",
-                        " " if paziente.medico_riferimento else ""
+                        f"Dr. {paziente.medico_riferimento.name} {paziente.medico_riferimento.surname}" if paziente.medico_riferimento else "Non assegnato"
                     ], className="card-text")
                 ])
             ])

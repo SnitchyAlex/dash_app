@@ -4,10 +4,55 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 from datetime import datetime, date
 
+def get_terapie_options(terapie):
+    """Crea le opzioni per il dropdown dei farmaci dalle terapie attive"""
+    options = []
+    terapie_data = {}
+    
+    # Filtra solo le terapie attive (oggi compreso nell'intervallo)
+    oggi = datetime.now().date()
+    
+    for terapia in terapie:
+        # Controlla se la terapia è attiva oggi
+        data_inizio = terapia.data_inizio.date() if isinstance(terapia.data_inizio, datetime) else terapia.data_inizio
+        data_fine = None
+        if terapia.data_fine:
+            data_fine = terapia.data_fine.date() if isinstance(terapia.data_fine, datetime) else terapia.data_fine
+        
+        # Terapia attiva se: data_inizio <= oggi e (data_fine è None o data_fine >= oggi)
+        if data_inizio and data_inizio <= oggi and (data_fine is None or data_fine >= oggi):
+            farmaco_key = f"prescritto_{terapia.nome_farmaco}"
+            
+            # Evita duplicati (se stesso farmaco prescritto più volte)
+            if farmaco_key not in terapie_data:
+                label = f"{terapia.nome_farmaco} (prescritto)"
+                if terapia.assunzioni_giornaliere > 1:
+                    label += f" - {terapia.assunzioni_giornaliere} al giorno"
+                
+                options.append({
+                    "label": label,
+                    "value": farmaco_key
+                })
+                
+                terapie_data[farmaco_key] = {
+                    "nome": terapia.nome_farmaco,
+                    "dosaggio": terapia.dosaggio_per_assunzione,
+                    "assunzioni_giornaliere": terapia.assunzioni_giornaliere,
+                    "indicazioni": terapia.indicazioni or ""
+                }
+    
+    # Aggiungi opzione "Altro"
+    options.append({
+        "label": "Altro farmaco (non prescritto)...",
+        "value": "altro"
+    })
+    
+    return options, terapie_data
+
+
 # DASHBOARD PRINCIPALE
 
 # MODIFICHE PER view/patient.py
-# Sostituisci la funzione get_patient_dashboard con questa versione aggiornata:
 
 def get_patient_dashboard(username):
     """Dashboard per i pazienti"""
@@ -132,7 +177,7 @@ def _create_patient_buttons_grid():
         ("btn-andamento-glicemico", "/assets/grafico.png", "Andamento Glicemico", "btn-success"),
         ("btn-miei-dati", "/assets/dati.png", "I Miei Dati", "btn-success"),
         ("btn-nuova-assunzione", "/assets/farmaco.png", "Nuova Assunzione", "btn-success"),
-        ("btn-sintomi-trattamenti", "/assets/sintomi.png", "Sintomi e Trattamenti", "btn-success"),
+        ("btn-sintomi-terapie", "/assets/sintomi.png", "Sintomi e Cure concomitanti", "btn-success"),
         ("btn-terapie", "/assets/terapia.png", "Le mie terapie", "btn-success"),
         ("btn-messaggi", "/assets/messaggi.png", "Contatta il tuo medico di base", "btn-success")
     ]
@@ -250,36 +295,62 @@ def get_glicemia_form():
     ], className="mt-3")
 
 def get_nuova_assunzione_form():
-    """Form per registrare una nuova assunzione di farmaci"""
+    """Form per registrare una nuova assunzione di farmaci con dropdown terapie"""
     return dbc.Card([
         dbc.CardHeader([
             html.H5("Registrazione Assunzione Farmaci", className="mb-0 text-primary")
         ]),
         dbc.CardBody([
-            # Nome farmaco e dosaggio
+            # Dropdown farmaci prescritti + opzione "Altro"
             dbc.Row([
                 dbc.Col([
-                    dbc.Label("Nome del farmaco *", className="form-label"),
-                    dbc.Input(id="input-nome-farmaco", type="text", 
-                            placeholder="es. Metformina", className="form-control")
-                ], width=12, md=6),
+                    dbc.Label("Seleziona farmaco *", className="form-label"),
+                    dcc.Dropdown(
+                        id="dropdown-farmaco-prescritto",
+                        placeholder="Caricamento farmaci in corso...",
+                        clearable=False,
+                        className="mb-2"
+                    )
+                ], width=12, md=8),
                 
+                dbc.Col([
+                    dbc.Label("Dosaggio prescritto:", className="form-label text-muted"),
+                    html.Div(id="dosaggio-suggerito-display", 
+                            className="form-control-plaintext text-muted",
+                            children="Seleziona un farmaco")
+                ], width=12, md=4)
+            ], className="mb-3"),
+            
+            # Campo nome farmaco personalizzato (nascosto di default)
+            html.Div(id="nome-farmaco-custom-container", children=[
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Label("Nome del farmaco *", className="form-label"),
+                        dbc.Input(id="input-nome-farmaco-custom", type="text", 
+                                placeholder="Inserisci il nome del farmaco...", className="form-control")
+                    ], width=12)
+                ], className="mb-3")
+            ], style={"display": "none"}),
+            
+            # Dosaggio personalizzabile
+            dbc.Row([
                 dbc.Col([
                     dbc.Label("Dosaggio *", className="form-label"),
                     dbc.Input(id="input-dosaggio-farmaco", type="text", 
-                            placeholder="es. 500mg, 1 compressa...", className="form-control")
-                ], width=12, md=6)
-            ], className="mb-3"),
-            
-            # Data e ora
-            dbc.Row([
+                            placeholder="es. 500mg, 1 compressa, mezza compressa...", className="form-control"),
+                    dbc.FormText("Non puoi registrare un dosaggio diverso da quello prescritto", className="text-muted")
+                ], width=12, md=6),
+                
                 dbc.Col([
                     dbc.Label("Data assunzione *", className="form-label"),
                     dbc.Input(id="input-data-assunzione", type="date",
                             value=date.today().strftime('%Y-%m-%d'),
                             max=date.today().strftime('%Y-%m-%d'), className="form-control")
-                ], width=12, md=6),
-                
+                ], width=12, md=6)
+            ], className="mb-3"),
+            
+            # Ora
+            dbc.Row([
                 dbc.Col([
                     dbc.Label("Ora assunzione *", className="form-label"),
                     dbc.Input(id="input-ora-assunzione", type="time",
@@ -297,17 +368,20 @@ def get_nuova_assunzione_form():
                 ], width=12)
             ], className="mb-3"),
             
+            # Store per i dati delle terapie
+            dcc.Store(id="terapie-data-store"),
+            
             # Pulsanti
             _create_form_buttons("btn-salva-assunzione", "btn-annulla-assunzione", 
                                "Salva Assunzione", "Annulla")
         ])
     ], className="mt-3")
 
-def get_sintomi_trattamenti_form():
+def get_sintomi_cure_form():
     """Form per registrare sintomi, patologie e trattamenti"""
     return dbc.Card([
         dbc.CardHeader([
-            html.H5("Registrazione Sintomi e Trattamenti", className="mb-0 text-primary")
+            html.H5("Registrazione Sintomi e Cure concomitanti", className="mb-0 text-primary")
         ]),
         dbc.CardBody([
             # Tipo e descrizione
@@ -318,7 +392,7 @@ def get_sintomi_trattamenti_form():
                              options=[
                                  {"label": "Sintomo", "value": "sintomo"},
                                  {"label": "Patologia", "value": "patologia"},
-                                 {"label": "Trattamento", "value": "trattamento"}
+                                 {"label": "Terapia concomitante", "value": "terapia"}
                              ], placeholder="Seleziona il tipo...", className="form-control")
                 ], width=12, md=4),
                 
@@ -798,12 +872,12 @@ def get_medication_alert():
             html.Img(src="/assets/bell_ring.png", style={"width": "18px", "height": "18px"})
         ], className="alert-icon me-2"),
         html.Div([
-            html.Strong("Promemoria assunzioni giornaliere. "),
-            "Non hai ancora registrato assunzioni di farmaci per oggi. ",
-            "Ricorda di registrare le tue assunzioni usando il pulsante ", 
+            html.Strong("Promemoria assunzione farmaci. "),
+            "È importante mantenere un monitoraggio dei farmaci che stai assumendo. ",
+            "Ricorda di registrare le tue assunzioni farmaceutiche usando il pulsante ", 
             html.Em("Nuova Assunzione"), " qui sotto."
         ], style={"display": "inline"})
-    ], color="danger", className="d-flex align-items-center alert-medication")
+    ], color="info", className="info mb-4")
 
 def get_contact_doctor_view():
     """Vista per contattare il medico di base"""

@@ -1,24 +1,34 @@
-/* stile css */
+/* ===========================
+   VARIABILI CSS
+   =========================== */
 :root {
     --primary-green: #10b981;
     --secondary-green: #059669;
     --light-green: #34d399;
     --very-light-green: #d1fae5;
     --dark-green: #047857;
+    
     --medical-blue: #0ea5e9;
+    --MEDICAL_BLUE: #0ea5e9;
+    --patient-blue: #53dfff;
+    --doctor-blue: #1c7cfe;
+    --secondary-blue: #60a5fa;
+    
+    --primary-red: #FA4646;
+    --secondary-red: #fd8e8e;
+    
+    --primary-orange: #f97316;
+    --secondary-orange: #fdba74;
+    
     --soft-gray: #f8fafc;
     --white: #ffffff;
     --text-dark: #1f2937;
     --text-light: #6b7280;
-    --primary-red: #FA4646;
-    --secondary-red: #fd8e8e;
-    --patient-blue: #53dfff;
-    --doctor-blue: #1c7cfe;
-    --secondary-blue: #60a5fa;
-    --MEDICAL_BLUE: #0ea5e9; /* fix: niente virgolette */
 }
 
-/* Body e background generale */
+/* ===========================
+   LAYOUT BASE
+   =========================== */
 body {
     background: url('/assets/sfondo.gif') no-repeat center center fixed;
     background-size: cover;
@@ -26,13 +36,14 @@ body {
     min-height: 100vh;
 }
 
-/* Container principale */
 .main-container {
     min-height: 100vh;
-    background: transparent; /* Trasparente per mostrare la GIF di sfondo */
+    background: transparent;
 }
 
-/* Card styling con effetto moderno */
+/* ===========================
+   CARD E CONTENITORI
+   =========================== */
 .card {
     border: none;
     border-radius: 16px;
@@ -47,7 +58,13 @@ body {
     box-shadow: 0 20px 60px rgba(16, 185, 129, 0.15);
 }
 
-/* Titoli con gradiente */
+.card-body {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* ===========================
+   TIPOGRAFIA E TITOLI
+   =========================== */
 .gradient-title {
     background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
     -webkit-background-clip: text;
@@ -56,16 +73,9 @@ body {
     font-weight: 700;
     margin-bottom: 2rem;
 }
-.patient-title{
-     background: linear-gradient(135deg, var(--medical-blue), var(--patient-blue));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 700;
-    margin-bottom: 2rem;
-}
-.doctor-title{
-     background: linear-gradient(135deg, var(--doctor-blue), var(--secondary-blue));
+
+.patient-title {
+    background: linear-gradient(135deg, var(--medical-blue), var(--patient-blue));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -73,7 +83,18 @@ body {
     margin-bottom: 2rem;
 }
 
-/* Input fields moderni */
+.doctor-title {
+    background: linear-gradient(135deg, var(--doctor-blue), var(--secondary-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+    margin-bottom: 2rem;
+}
+
+/* ===========================
+   FORM E INPUT
+   =========================== */
 .form-control {
     border: 2px solid #e5e7eb;
     border-radius: 12px;
@@ -82,13 +103,13 @@ body {
     transition: all 0.3s ease;
     background: rgba(255, 255, 255, 0.8);
 }
+
 .form-control:focus {
     border-color: var(--primary-green);
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
     background: var(--white);
 }
 
-/* Labels eleganti */
 .form-label {
     color: var(--text-dark);
     font-weight: 600;
@@ -98,7 +119,9 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* Bottoni moderni con gradiente */
+/* ===========================
+   BOTTONI
+   =========================== */
 .btn-primary {
     background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
     border: none;
@@ -109,11 +132,13 @@ body {
     transition: all 0.3s ease;
     box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
+
 .btn-primary:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
     background: linear-gradient(135deg, var(--light-green), var(--primary-green));
 }
+
 .btn-primary:disabled {
     background: #d1d5db;
     color: #9ca3af;
@@ -132,13 +157,14 @@ body {
     transition: all 0.3s ease;
     box-shadow: 0 4px 15px rgba(250, 70, 70, 0.3);
 }
+
 .btn-red:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(250, 70, 70, 0.4);
     background: linear-gradient(135deg, #ff6b6b, var(--primary-red));
 }
 
-.btn-info{
+.btn-info {
     background: linear-gradient(135deg, var(--secondary-blue), var(--patient-blue));
     border: none;
     border-radius: 12px;
@@ -149,40 +175,6 @@ body {
     box-shadow: 0 4px 15px rgba(44, 173, 228, 0.3);
 }
 
-/* Alert moderni */
-.alert {
-    border: none;
-    border-radius: 12px;
-    font-weight: 500;
-    backdrop-filter: blur(10px);
-}
-.alert-success {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(52, 211, 153, 0.1));
-    color: var(--dark-green);
-    border-left: 4px solid var(--primary-green);
-}
-.alert-danger {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(248, 113, 113, 0.1));
-    color: #dc2626;
-    border-left: 4px solid #ef4444;
-}
-
-/* Animazioni di entrata */
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-.card-body { animation: fadeInUp 0.6s ease-out; }
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .card {
-        margin: 20px;
-        border-radius: 12px;
-    }
-}
-
-/* Stile per il welcome button */
 .welcome-btn {
     background: linear-gradient(135deg, var(--primary-green), var(--medical-blue));
     border: none;
@@ -194,13 +186,225 @@ body {
     transition: all 0.4s ease;
     box-shadow: 0 8px 30px rgba(16, 185, 129, 0.3);
 }
+
 .welcome-btn:hover {
     transform: translateY(-3px) scale(1.05);
     box-shadow: 0 15px 40px rgba(16, 185, 129, 0.4);
     background: linear-gradient(135deg, var(--light-green), var(--medical-blue));
 }
 
-/* Decorazioni mediche */
+/* ===========================
+   ALERT E NOTIFICHE
+   =========================== */
+.alert {
+    border: none;
+    border-radius: 12px;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(52, 211, 153, 0.1));
+    color: var(--dark-green);
+    border-left: 4px solid var(--primary-green);
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(248, 113, 113, 0.1));
+    color: #dc2626;
+    border-left: 4px solid #ef4444;
+}
+
+.alert-orange {
+    background: linear-gradient(135deg, rgba(253, 126, 20, 0.1), rgba(255, 169, 77, 0.1));
+    color: var(--primary-orange);
+    border-left: 4px solid var(--primary-orange);
+}
+
+.alert-medication {
+    border-inline-start: 4px solid #dc3545;
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, .15);
+    animation: slideDown .3s ease-out;
+}
+
+/* ===========================
+   CAMPANELLA E NOTIFICHE
+   =========================== */
+#bell-button,
+#bell-button-medico {
+    position: relative;
+    border: none;
+    width: 48px;
+    height: 48px;
+    transition: background-color .3s ease, transform .2s ease, box-shadow .3s ease;
+}
+
+#bell-button img,
+#bell-button-medico img {
+    width: 32px;
+    height: 32px;
+    display: inline-block;
+    transform-origin: top center;
+    pointer-events: none;
+}
+
+#bell-button:hover,
+#bell-button-medico:hover {
+    transform: scale(1.15) rotate(10deg);
+}
+
+#bell-button:active,
+#bell-button-medico:active {
+    transform: scale(0.95);
+}
+
+/* Stati della campanella - Success */
+#bell-button.btn-success,
+#bell-button.btn-outline-success,
+#bell-button-medico.btn-success,
+#bell-button-medico.btn-outline-success {
+    box-shadow: 0 4px 12px rgba(25, 131, 135, 0.3);
+}
+
+/* Stati della campanella - Danger */
+#bell-button.btn-danger,
+#bell-button.btn-outline-danger,
+#bell-button-medico.btn-danger,
+#bell-button-medico.btn-outline-danger {
+    animation: pulse 2s infinite;
+    box-shadow: 0 4px 12px rgba(220, 53, 53, 0.4);
+}
+
+#bell-button.btn-danger img,
+#bell-button.btn-outline-danger img,
+#bell-button-medico.btn-danger img,
+#bell-button-medico.btn-outline-danger img {
+    animation: bell-ring 2s ease-in-out infinite;
+}
+
+/* Stati della campanella - Warning */
+#bell-button.btn-warning,
+#bell-button.btn-outline-warning,
+#bell-button-medico.btn-warning,
+#bell-button-medico.btn-outline-warning {
+    box-shadow: 0 4px 12px rgba(255, 193, 7, .4);
+}
+
+#bell-button.btn-warning img,
+#bell-button.btn-outline-warning img,
+#bell-button-medico.btn-warning img,
+#bell-button-medico.btn-outline-warning img {
+    animation: bell-ring 4s ease-in-out infinite;
+}
+
+/* Stati della campanella - Orange */
+#bell-button.btn-orange,
+#bell-button-medico.btn-orange {
+    background-color: var(--primary-orange) !important;
+    border-color: var(--primary-orange) !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+    animation: pulse-orange 2s infinite;
+}
+
+#bell-button.btn-orange:hover,
+#bell-button-medico.btn-orange:hover {
+    background-color: var(--secondary-orange) !important;
+    border-color: var(--secondary-orange) !important;
+    transform: scale(1.15) rotate(10deg);
+}
+
+#bell-button.btn-orange img,
+#bell-button-medico.btn-orange img {
+    animation: bell-ring 3s ease-in-out infinite;
+}
+
+#bell-button.btn-outline-orange,
+#bell-button-medico.btn-outline-orange {
+    border-color: var(--primary-orange) !important;
+    color: var(--primary-orange) !important;
+    background-color: transparent;
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+    animation: pulse-orange 2s infinite;
+}
+
+#bell-button.btn-outline-orange img,
+#bell-button-medico.btn-outline-orange img {
+    animation: bell-ring 3s ease-in-out infinite;
+}
+
+#bell-button.btn-outline-orange:hover,
+#bell-button-medico.btn-outline-orange:hover {
+    background-color: var(--primary-orange) !important;
+    color: white !important;
+}
+
+/* ===========================
+   MODAL
+   =========================== */
+#alerts-modal .modal-header,
+#alerts-modal-medico .modal-header {
+    background: linear-gradient(135deg, #0992bb 0%, #48f28f 100%);
+    color: #fff;
+}
+
+#alerts-modal .modal-title,
+#alerts-modal-medico .modal-title {
+    font-weight: 600;
+}
+
+#alerts-modal .list-group-item,
+#alerts-modal-medico .list-group-item {
+    transition: all .3s ease;
+}
+
+#alerts-modal .list-group-item:hover,
+#alerts-modal-medico .list-group-item:hover {
+    background-color: rgba(0, 0, 0, .02);
+    transform: translateX(5px);
+}
+
+#alerts-modal .list-group-item.border-danger {
+    border-left-width: 4px !important;
+    background: linear-gradient(to right, rgba(5, 138, 87, 0.05), transparent);
+}
+
+#alerts-modal .list-group-item.border-warning {
+    border-left-width: 4px !important;
+    background: linear-gradient(to right, rgba(255, 193, 7, .05), transparent);
+}
+
+#alerts-modal .list-group-item.border-info {
+    border-left-width: 4px !important;
+    background: linear-gradient(to right, rgba(13, 202, 240, .05), transparent);
+}
+
+#alerts-modal-medico .list-group-item.border-danger {
+    border-left-width: 4px !important;
+    background: linear-gradient(to right, rgba(220, 53, 69, 0.05), transparent);
+}
+
+#alerts-modal-medico .list-group-item.border-warning {
+    border-left-width: 4px !important;
+    background: linear-gradient(to right, rgba(218, 215, 49, 0.05), transparent);
+}
+
+/* ===========================
+   UTILITÀ E COLORI
+   =========================== */
+.text-orange {
+    color: var(--primary-orange) !important;
+}
+
+.border-orange {
+    border-color: var(--primary-orange) !important;
+}
+
+.bg-orange {
+    background-color: var(--primary-orange) !important;
+}
+
 .medical-icon {
     color: var(--primary-green);
     opacity: 0.1;
@@ -209,7 +413,6 @@ body {
     z-index: -1;
 }
 
-/* Loading spinner personalizzato */
 .loading-spinner {
     border: 3px solid var(--very-light-green);
     border-top: 3px solid var(--primary-green);
@@ -218,115 +421,75 @@ body {
     height: 20px;
     animation: spin 1s linear infinite;
 }
+
+/* ===========================
+   ANIMAZIONI
+   =========================== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bell-ring {
+    0% { transform: rotate(0); }
+    10% { transform: rotate(14deg); }
+    20% { transform: rotate(-8deg); }
+    30% { transform: rotate(14deg); }
+    40% { transform: rotate(-4deg); }
+    50% { transform: rotate(10deg); }
+    60%, 100% { transform: rotate(0); }
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, .7); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+@keyframes pulse-orange {
+    0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, .7); }
+    70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+}
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
 
-/* === CAMPANELLA & ALERTS === */
-@keyframes bell-ring {
-  0% { transform: rotate(0); }
-  10% { transform: rotate(14deg); }
-  20% { transform: rotate(-8deg); }
-  30% { transform: rotate(14deg); }
-  40% { transform: rotate(-4deg); }
-  50% { transform: rotate(10deg); }
-  60%,100% { transform: rotate(0); }
-}
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, .7); }
-  70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+/* ===========================
+   RESPONSIVE DESIGN
+   =========================== */
+@media (max-width: 768px) {
+    .card {
+        margin: 20px;
+        border-radius: 12px;
+    }
 }
 
-/* Bottone campanella (usa <img>, non <i>) */
-#bell-button{
-  position: relative;
-  border: none;
-  width: 48px;
-  height: 48px;
-  transition: background-color .3s ease, transform .2s ease, box-shadow .3s ease;
+/* ===========================
+   ACCESSIBILITÀ
+   =========================== */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
 }
-#bell-button img{
-  width: 32px;
-  height: 32px;
-  display: inline-block;
-  transform-origin: top center;
-  pointer-events: none;
-}
-#bell-button:hover{ transform: scale(1.15) rotate(10deg); }
-#bell-button:active{ transform: scale(0.95); }
-
-/* Stati colore (+ compatibilità outline) */
-#bell-button.btn-success,
-#bell-button.btn-outline-success { box-shadow: 0 4px 12px rgba(25,135,84,.3); }
-#bell-button.btn-danger,
-#bell-button.btn-outline-danger  { animation: pulse 2s infinite; box-shadow: 0 4px 12px rgba(220,53,69,.4); }
-#bell-button.btn-warning,
-#bell-button.btn-outline-warning { box-shadow: 0 4px 12px rgba(255,193,7,.4); }
-
-/* Anima la campanella <img> in base allo stato */
-#bell-button.btn-danger img,
-#bell-button.btn-outline-danger img  { animation: bell-ring 2s ease-in-out infinite; }
-#bell-button.btn-warning img,
-#bell-button.btn-outline-warning img { animation: bell-ring 4s ease-in-out infinite; }
-
-/* Banner alert sopra i bottoni */
-.alert-medication{
-  border-inline-start: 4px solid #dc3545;
-  background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
-  box-shadow: 0 2px 8px rgba(220,53,69,.15);
-  animation: slideDown .3s ease-out;
-}
-@keyframes slideDown{
-  from{ opacity:0; transform: translateY(-20px); }
-  to{ opacity:1; transform: translateY(0); }
-}
-
-/* Modal alert styling */
-#alerts-modal .modal-header{
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color:#fff;
-}
-#alerts-modal .modal-title{ font-weight:600; }
-
-/* Lista alert nel modal */
-#alerts-modal .list-group-item{ transition: all .3s ease; }
-#alerts-modal .list-group-item:hover{
-  background-color: rgba(0,0,0,.02);
-  transform: translateX(5px);
-}
-#alerts-modal .list-group-item.border-danger{
-  border-left-width:4px!important;
-  background: linear-gradient(to right, rgba(220,53,69,.05), transparent);
-}
-#alerts-modal .list-group-item.border-warning{
-  border-left-width:4px!important;
-  background: linear-gradient(to right, rgba(255,193,7,.05), transparent);
-}
-#alerts-modal .list-group-item.border-info{
-  border-left-width:4px!important;
-  background: linear-gradient(to right, rgba(13,202,240,.05), transparent);
-}
-
-/* Riduci animazioni se preferito dall'utente */
-@media (prefers-reduced-motion: reduce){
-  *{ animation: none !important; transition: none !important; }
-}
-
-/* Stile separato per la campanella lato medico, per evitare conflitti */
-#bell-button-medico{
-  position: relative;
-  border: none;
-  width: 48px;
-  height: 48px;
-  transition: background-color .3s ease, transform .2s ease, box-shadow .3s ease;
-}
-#bell-button-medico img{
-  width: 32px; height: 32px;
-  display: inline-block;
-  transform-origin: top center;
-  pointer-events: none;
-}
-#bell-button-medico.btn-danger img{ animation: bell-ring 2s ease-in-out infinite; }
-#bell-button-medico.btn-warning img{ animation: bell-ring 4s ease-in-out infinite; }

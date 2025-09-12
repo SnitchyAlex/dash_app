@@ -5,7 +5,6 @@ from .user import User
 # Define the medico entity
 class Medico(User):
     # Attributi specifici dei medici
-    specializzazione = Optional(str)
     email = Required(str, unique=True)
     
     # Relazione many-to-many con i pazienti

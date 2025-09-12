@@ -12,43 +12,142 @@ import plotly.graph_objects as go
 from datetime import datetime as _dt
 import json
 import re 
+
 from model.terapia import Terapia
 from model.medico import Medico
 from model.paziente import Paziente
 from model.glicemia import Glicemia
-from model.assunzione import Assunzione #impporto il modello per gli alert
+from model.assunzione import Assunzione
 from view.doctor import *
 
+# ===============================
+# FUNZIONI DI SUPPORTO GLOBALI
+# ===============================
+
+def _normalize_string(s):
+    """Normalizza una stringa rimuovendo spazi e convertendo in lowercase"""
+    return re.sub(r"\s+", "", (s or "").strip().lower())
+
+def _same_drug(a_nome, t_nome):
+    """Confronta due nomi di farmaco normalizzati"""
+    return _normalize_string(a_nome) == _normalize_string(t_nome)
+
+def _same_dose(a_dose, t_dose):
+    """Confronta due dosaggi normalizzati"""
+    return _normalize_string(a_dose) == _normalize_string(t_dose)
+
+def _matches_therapy(assunzione, terapia):
+    """Verifica se un'assunzione corrisponde a una terapia"""
+    if getattr(assunzione, "terapia", None) is not None:
+        return assunzione.terapia == terapia
+    
+    return (_same_drug(assunzione.nome_farmaco, terapia.nome_farmaco) and
+            _same_dose(assunzione.dosaggio, terapia.dosaggio_per_assunzione))
+
+def _fmt_ctx(misura):
+    """Formatta il contesto della misurazione glicemica"""
+    momento = (getattr(misura, "momento_pasto", None) or "").strip().lower()
+    
+    if momento == "digiuno":
+        return "a digiuno"
+    elif momento == "prima_pasto":
+        return "prima del pasto"
+    elif momento == "dopo_pasto":
+        due_ore = getattr(misura, "due_ore_pasto", None)
+        if due_ore is True:
+            return "dopo il pasto (≥ 2 ore)"
+        elif due_ore is False:
+            return "dopo il pasto (< 2 ore)"
+        return "dopo il pasto"
+    return None
+
+def _is_anomalo_with_severity(valore, misura):
+    """
+    Determina la gravità di un valore glicemico anomalo.
+    
+    Returns:
+        None: valore normale
+        'warning': anomalo lieve (giallo)
+        'danger-orange': anomalo moderato (arancione)
+        'danger': anomalo critico (rosso)
+    """
+    if valore is None:
+        return None
+
+    try:
+        v = float(valore)
+    except (ValueError, TypeError):
+        return None
+
+    momento = (getattr(misura, "momento_pasto", None) or "").strip().lower()
+    
+    # Valori critici (ROSSI)
+    if v < 54 or v > 250:
+        return 'danger'
+    
+    if momento in ("digiuno", "prima_pasto") and v > 200:
+        return 'danger'
+    
+    # Valori moderati (ARANCIONI)
+    if 54 <= v <= 69:
+        return 'danger-orange'
+    
+    if momento in ("digiuno", "prima_pasto") and 151 <= v <= 200:
+        return 'danger-orange'
+    elif momento == "dopo_pasto" and 201 <= v <= 250:
+        return 'danger-orange'
+    elif not momento and 201 <= v <= 250:  # momento non specificato
+        return 'danger-orange'
+    
+    # Valori lievi (GIALLI)
+    if 70 <= v <= 90:
+        return 'warning'
+    
+    if momento in ("digiuno", "prima_pasto") and 131 <= v <= 150:
+        return 'warning'
+    elif momento == "dopo_pasto" and 181 <= v <= 200:
+        return 'warning'
+    elif not momento and 181 <= v <= 200:
+        return 'warning'
+    
+    return None
+
+def _is_anomalo(valore, misura):
+    """Verifica se un valore glicemico è anomalo (compatibilità)"""
+    return _is_anomalo_with_severity(valore, misura) is not None
+
+# ===============================
+# REGISTRAZIONE CALLBACK PRINCIPALE
+# ===============================
 
 def register_doctor_callbacks(app):
     """Registra tutti i callback per i medici"""
 
-    # HELPER FUNCTIONS
+    # Helper per ottenere il medico corrente
     @db_session
     def get_current_medico():
-        """Helper per ottenere il medico corrente"""
-        return Medico.get(username=current_user.username)
+        return Medico.get(name=current_user.name, surname=current_user.surname)
 
+    # ===============================
+    # VALIDATORI E PARSER
+    # ===============================
+    
     def validate_terapia_data(nome_farmaco, dosaggio, assunzioni_giornaliere, data_inizio, data_fine):
-        """Valida i dati della terapia"""
-        if not nome_farmaco or not dosaggio or not assunzioni_giornaliere:
-            return "Per favore compila tutti i campi obbligatori!"
+        """Valida i dati inseriti per una terapia"""
+        if not all([nome_farmaco, dosaggio, assunzioni_giornaliere]):
+            return "Compila tutti i campi obbligatori!"
         
         if len(nome_farmaco.strip()) < 2:
-            return "Il nome del farmaco deve essere di almeno 2 caratteri!"
-        
-        if len(dosaggio.strip()) < 1:
-            return "Il dosaggio non può essere vuoto!"
+            return "Il nome del farmaco deve avere almeno 2 caratteri!"
         
         try:
             assunzioni = int(assunzioni_giornaliere)
-            if assunzioni < 1 or assunzioni > 10:
-                return "Il numero di assunzioni giornaliere deve essere tra 1 e 10!"
+            if not 1 <= assunzioni <= 10:
+                return "Le assunzioni giornaliere devono essere tra 1 e 10!"
         except ValueError:
             return "Numero di assunzioni non valido!"
         
         # Validazione date
-        data_inizio_obj = None
         if data_inizio:
             try:
                 data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d')
@@ -57,34 +156,30 @@ def register_doctor_callbacks(app):
             except ValueError:
                 return "Formato data inizio non valido!"
         
-        data_fine_obj = None
         if data_fine and data_fine.strip():
             try:
                 data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d')
-                if data_inizio_obj and data_fine_obj < data_inizio_obj:
-                    return "La data di fine non può essere precedente alla data di inizio!"
+                data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d')
+                if data_fine_obj < data_inizio_obj:
+                    return "La data di fine non può essere precedente a quella di inizio!"
             except ValueError:
                 return "Formato data fine non valido!"
         
-        return None  # Nessun errore
+        return None
 
     def parse_composite_key(composite_key):
-        """Parse della chiave composita per le terapie"""
+        """Parse della chiave composita per identificare le terapie"""
         parts = composite_key.split('|')
         if len(parts) != 4:
             raise ValueError("Formato chiave terapia non valido!")
         
         medico_nome, paziente_username, nome_farmaco, data_inizio_str = parts
-        
-        if data_inizio_str == 'None':
-            data_inizio_obj = None
-        else:
-            data_inizio_obj = datetime.strptime(data_inizio_str, '%Y-%m-%d')
+        data_inizio_obj = None if data_inizio_str == 'None' else datetime.strptime(data_inizio_str, '%Y-%m-%d')
         
         return medico_nome, paziente_username, nome_farmaco, data_inizio_obj
 
     def get_terapia_from_composite_key(composite_key):
-        """Trova una terapia usando la chiave composita"""
+        """Trova una terapia dalla chiave composita"""
         medico_nome, paziente_username, nome_farmaco, data_inizio_obj = parse_composite_key(composite_key)
         
         paziente = Paziente.get(username=paziente_username)
@@ -104,14 +199,17 @@ def register_doctor_callbacks(app):
         return terapia, paziente
 
     def check_medico_paziente_authorization(medico, paziente):
-        """Verifica che il medico possa gestire questo paziente"""
+        """Verifica autorizzazione medico su paziente"""
         if medico not in paziente.doctors:
             return get_error_message(
-                f"Accesso negato: Non sei autorizzato a gestire i dati del paziente {paziente.name} {paziente.surname}."
+                f"Accesso negato: Non sei autorizzato a gestire {paziente.name} {paziente.surname}."
             )
         return None
 
-    # MENU NAVIGATION CALLBACKS
+    # ===============================
+    # CALLBACK NAVIGAZIONE MENU
+    # ===============================
+    
     @app.callback(
         Output('doctor-content', 'children'),
         Input('btn-gestisci-terapie', 'n_clicks'),
@@ -130,13 +228,16 @@ def register_doctor_callbacks(app):
     
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
-        [Input('btn-torna-menu-terapie', 'n_clicks')],
+        Input('btn-torna-menu-terapie', 'n_clicks'),
         prevent_initial_call=True
     )
     def torna_menu_terapie(n_clicks):
         return get_terapie_menu() if n_clicks else dash.no_update
 
-    # TERAPIA FORM DISPLAYS
+    # ===============================
+    # CALLBACK FORM TERAPIE
+    # ===============================
+
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
         Input('btn-assegna-terapia', 'n_clicks'),
@@ -151,8 +252,7 @@ def register_doctor_callbacks(app):
         if not medico:
             return get_error_message("Errore: medico non trovato!")
         
-        pazienti = list(Paziente.select())
-        return get_assegna_terapia_form(pazienti)
+        return get_assegna_terapia_form(list(Paziente.select()))
 
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
@@ -168,8 +268,7 @@ def register_doctor_callbacks(app):
         if not medico:
             return get_error_message("Errore: medico non trovato!")
         
-        pazienti = list(Paziente.select())
-        return get_modifica_terapia_form(pazienti)
+        return get_modifica_terapia_form(list(Paziente.select()))
 
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
@@ -185,10 +284,12 @@ def register_doctor_callbacks(app):
         if not medico:
             return get_error_message("Errore: medico non trovato!")
         
-        pazienti = list(Paziente.select())
-        return get_elimina_terapia_form(pazienti)
+        return get_elimina_terapia_form(list(Paziente.select()))
 
-    # TERAPIA CRUD OPERATIONS
+    # ===============================
+    # CALLBACK CRUD TERAPIE
+    # ===============================
+
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
         Input('btn-salva-terapia', 'n_clicks'),
@@ -208,7 +309,7 @@ def register_doctor_callbacks(app):
         if not n_clicks:
             return dash.no_update
 
-        # Validazione
+        # Validazione dati
         validation_error = validate_terapia_data(nome_farmaco, dosaggio, assunzioni_giornaliere, data_inizio, data_fine)
         if validation_error:
             return get_error_message(validation_error)
@@ -222,19 +323,17 @@ def register_doctor_callbacks(app):
             if not paziente:
                 return get_error_message("Errore: paziente non trovato!")
 
-            # Assegna automaticamente il paziente al medico se necessario
+            # Associa medico a paziente se necessario
             if medico not in paziente.doctors:
                 paziente.doctors.add(medico)
                 commit()
             
+            # Preparazione dati
             indicazioni_finali = get_indicazioni_display(indicazioni_select) if indicazioni_select else ""
-
-
-            # Converti date
             data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d') if data_inizio else None
             data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d') if data_fine and data_fine.strip() else None
 
-            # Crea terapia
+            # Creazione terapia
             terapia = Terapia(
                 medico=medico,
                 medico_nome=f"Dr. {medico.name} {medico.surname}",
@@ -242,16 +341,16 @@ def register_doctor_callbacks(app):
                 nome_farmaco=nome_farmaco.strip(),
                 dosaggio_per_assunzione=dosaggio.strip(),
                 assunzioni_giornaliere=int(assunzioni_giornaliere),
-                indicazioni=indicazioni_finali if indicazioni_finali else '',
+                indicazioni=indicazioni_finali,
                 data_inizio=data_inizio_obj,
                 data_fine=data_fine_obj,
                 note=note.strip() if note else ''
             )
             commit()
 
-            paziente_nome = f"{paziente.name} {paziente.surname}"
             return get_terapia_success_message(
-                paziente_nome, nome_farmaco, dosaggio, int(assunzioni_giornaliere),
+                f"{paziente.name} {paziente.surname}",
+                nome_farmaco, dosaggio, int(assunzioni_giornaliere),
                 data_inizio_obj, data_fine_obj
             )
 
@@ -270,11 +369,13 @@ def register_doctor_callbacks(app):
         
         medico = get_current_medico()
         if medico:
-            pazienti = list(Paziente.select())
-            return get_assegna_terapia_form(pazienti)
+            return get_assegna_terapia_form(list(Paziente.select()))
         return dash.no_update
 
-    # PATIENT THERAPY LISTS
+    # ===============================
+    # CALLBACK LISTE TERAPIE PAZIENTI
+    # ===============================
+
     @app.callback(
         Output('terapie-paziente-list', 'children'),
         Input('select-paziente-modifica', 'value'),
@@ -291,7 +392,6 @@ def register_doctor_callbacks(app):
                 return get_error_message("Paziente non trovato!")
 
             terapie = paziente.terapies
-
             if not terapie:
                 return dbc.Alert([
                     html.H6("Nessuna terapia trovata", className="alert-heading"),
@@ -323,7 +423,6 @@ def register_doctor_callbacks(app):
                 return get_error_message("Paziente non trovato!")
 
             terapie = paziente.terapies
-
             if not terapie:
                 return dbc.Alert([
                     html.H6("Nessuna terapia trovata", className="alert-heading"),
@@ -335,7 +434,10 @@ def register_doctor_callbacks(app):
         except Exception as e:
             return get_error_message(f"Errore: {str(e)}")
 
-    # THERAPY MODIFICATION
+    # ===============================
+    # CALLBACK MODIFICA TERAPIE
+    # ===============================
+
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
         Input({'type': 'btn-modifica-terapia-specifica', 'index': dash.dependencies.ALL}, 'n_clicks'),
@@ -351,7 +453,7 @@ def register_doctor_callbacks(app):
             return dash.no_update
 
         try:
-            # Parse button ID
+            # Parse del button ID per ottenere la chiave composita
             button_id = ctx.triggered[0]['prop_id']
             json_start = button_id.find('{')
             json_end = button_id.rfind('}') + 1
@@ -364,12 +466,12 @@ def register_doctor_callbacks(app):
             if not medico:
                 return get_error_message("Errore: medico non trovato!")
 
+            # Verifica autorizzazioni
             auth_error = check_medico_paziente_authorization(medico, paziente)
             if auth_error:
                 return auth_error
 
-            pazienti = list(Paziente.select())
-            return get_edit_terapia_form(terapia, pazienti)
+            return get_edit_terapia_form(terapia, list(Paziente.select()))
 
         except (json.JSONDecodeError, ValueError) as e:
             return get_error_message(f"Errore nel parsing: {str(e)}")
@@ -407,11 +509,12 @@ def register_doctor_callbacks(app):
 
         try:
             terapia, paziente_orig = get_terapia_from_composite_key(terapia_key)
-
             medico = get_current_medico()
+            
             if not medico:
                 return get_error_message("Errore: medico non trovato!")
 
+            # Verifica autorizzazioni
             auth_error = check_medico_paziente_authorization(medico, paziente_orig)
             if auth_error:
                 return auth_error
@@ -420,15 +523,12 @@ def register_doctor_callbacks(app):
             if not paziente_nuovo:
                 return get_error_message("Nuovo paziente non trovato!")
 
-            # Processa indicazioni
+            # Preparazione dati
             indicazioni_finali = get_indicazioni_display(indicazioni_select) if indicazioni_select else ""
-
-
-            # Converti date
             data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d') if data_inizio else None
             data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d') if data_fine and data_fine.strip() else None
 
-            # Se la chiave primaria cambia, elimina e ricrea
+            # Se cambiano i dati chiave, ricreare la terapia
             if (paziente_nuovo != terapia.paziente or
                 nome_farmaco.strip() != terapia.nome_farmaco or
                 data_inizio_obj != terapia.data_inizio):
@@ -444,26 +544,26 @@ def register_doctor_callbacks(app):
                     nome_farmaco=nome_farmaco.strip(),
                     dosaggio_per_assunzione=dosaggio.strip(),
                     assunzioni_giornaliere=int(assunzioni_giornaliere),
-                    indicazioni=indicazioni_finali if indicazioni_finali else '',
+                    indicazioni=indicazioni_finali,
                     data_inizio=data_inizio_obj,
                     data_fine=data_fine_obj,
                     note=note.strip() if note else '',
                     modificata=f"Dr. {medico.name} {medico.surname}"
                 )
             else:
-                # Aggiorna direttamente
+                # Aggiornamento in place
                 terapia.dosaggio_per_assunzione = dosaggio.strip()
                 terapia.assunzioni_giornaliere = int(assunzioni_giornaliere)
-                terapia.indicazioni = indicazioni_finali if indicazioni_finali else ''
+                terapia.indicazioni = indicazioni_finali
                 terapia.data_fine = data_fine_obj
                 terapia.note = note.strip() if note else ''
                 terapia.modificata = f"Dr. {medico.name} {medico.surname}"
 
             commit()
 
-            paziente_nome = f"{paziente_nuovo.name} {paziente_nuovo.surname}"
             return get_terapia_modify_success_message(
-                paziente_nome, nome_farmaco, dosaggio, int(assunzioni_giornaliere),
+                f"{paziente_nuovo.name} {paziente_nuovo.surname}",
+                nome_farmaco, dosaggio, int(assunzioni_giornaliere),
                 data_inizio_obj, data_fine_obj
             )
 
@@ -482,11 +582,13 @@ def register_doctor_callbacks(app):
         
         medico = get_current_medico()
         if medico:
-            pazienti = list(Paziente.select())
-            return get_modifica_terapia_form(pazienti)
+            return get_modifica_terapia_form(list(Paziente.select()))
         return dash.no_update
 
-    # THERAPY DELETION
+    # ===============================
+    # CALLBACK ELIMINAZIONE TERAPIE
+    # ===============================
+
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
         Input({'type': 'btn-elimina-terapia-specifica', 'index': dash.dependencies.ALL}, 'n_clicks'),
@@ -502,7 +604,7 @@ def register_doctor_callbacks(app):
             return dash.no_update
 
         try:
-            # Parse button ID
+            # Parse del button ID
             button_id = ctx.triggered[0]['prop_id']
             json_start = button_id.find('{')
             json_end = button_id.rfind('}') + 1
@@ -510,26 +612,26 @@ def register_doctor_callbacks(app):
             composite_key = button_data['index']
 
             terapia, paziente = get_terapia_from_composite_key(composite_key)
-
             medico = get_current_medico()
+            
             if not medico:
                 return get_error_message("Errore: medico non trovato!")
 
+            # Verifica autorizzazioni
             auth_error = check_medico_paziente_authorization(medico, paziente)
             if auth_error:
                 return auth_error
 
-            # Salva dati per messaggio conferma
+            # Salva info per messaggio successo
             paziente_nome = f"{terapia.paziente.name} {terapia.paziente.surname}"
             farmaco_eliminato = terapia.nome_farmaco
             dosaggio_eliminato = terapia.dosaggio_per_assunzione
 
+            # Elimina terapia
             terapia.delete()
             commit()
 
-            return get_terapia_delete_success_message(
-                paziente_nome, farmaco_eliminato, dosaggio_eliminato
-            )
+            return get_terapia_delete_success_message(paziente_nome, farmaco_eliminato, dosaggio_eliminato)
 
         except (json.JSONDecodeError, ValueError) as e:
             return get_error_message(f"Errore nel parsing: {str(e)}")
@@ -548,11 +650,13 @@ def register_doctor_callbacks(app):
         
         medico = get_current_medico()
         if medico:
-            pazienti = list(Paziente.select())
-            return get_elimina_terapia_form(pazienti)
+            return get_elimina_terapia_form(list(Paziente.select()))
         return dash.no_update
 
-    # PATIENT DATA MANAGEMENT
+    # ===============================
+    # CALLBACK GESTIONE DATI PAZIENTI
+    # ===============================
+
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
         Input('btn-dati-paziente', 'n_clicks'),
@@ -567,8 +671,7 @@ def register_doctor_callbacks(app):
         if not medico:
             return get_error_message("Errore: medico non trovato!")
 
-        pazienti_lista = list(Paziente.select())
-        return get_dati_pazienti_menu(pazienti_lista)
+        return get_dati_pazienti_menu(list(Paziente.select()))
 
     @app.callback(
         Output('dati-paziente-display', 'children'),
@@ -615,6 +718,7 @@ def register_doctor_callbacks(app):
             if not paziente:
                 return get_error_message("Paziente non trovato!")
 
+            # Verifica autorizzazioni
             auth_error = check_medico_paziente_authorization(medico, paziente)
             if auth_error:
                 return auth_error
@@ -648,11 +752,12 @@ def register_doctor_callbacks(app):
             if not paziente:
                 return get_error_message("Paziente non trovato!")
 
+            # Verifica autorizzazioni
             auth_error = check_medico_paziente_authorization(medico, paziente)
             if auth_error:
                 return auth_error
 
-            # Aggiorna i dati clinici
+            # Aggiornamento dati paziente
             paziente.fattori_rischio = fattori_rischio.strip() if fattori_rischio else None
             paziente.pregresse_patologie = pregresse_patologie.strip() if pregresse_patologie else None
             paziente.comorbidita = comorbidita.strip() if comorbidita else None
@@ -660,15 +765,14 @@ def register_doctor_callbacks(app):
 
             commit()
 
-            paziente_nome = f"{paziente.name} {paziente.surname}"
-            return get_patient_data_update_success_message(paziente_nome)
+            return get_patient_data_update_success_message(f"{paziente.name} {paziente.surname}")
 
         except Exception as e:
             return get_error_message(f"Errore durante il salvataggio: {str(e)}")
 
-    # NAVIGATION CALLBACKS FOR PATIENT DATA
+    # Callback factory per navigation dei dati pazienti
     def create_patient_menu_callback(button_input, callback_name):
-        """Factory per creare callback che tornano al menu dati pazienti"""
+        """Factory per callback che tornano al menu dati pazienti"""
         @app.callback(
             Output('doctor-content', 'children', allow_duplicate=True),
             Input(button_input, 'n_clicks'),
@@ -684,20 +788,21 @@ def register_doctor_callbacks(app):
             if not medico:
                 return get_error_message("Errore: medico non trovato!")
 
-            pazienti = list(Paziente.select())
-            return get_dati_pazienti_menu(pazienti)
+            return get_dati_pazienti_menu(list(Paziente.select()))
         
-        # Rinomina la funzione per evitare conflitti
         callback_func.__name__ = callback_name
         return callback_func
 
-    # Crea i callback per la navigazione dei dati pazienti
+    # Registrazione callback navigazione dati pazienti
     create_patient_menu_callback('btn-annulla-modifica-dati', 'cancel_patient_data_edit')
     create_patient_menu_callback('btn-altro-paziente', 'show_another_patient_menu')
     create_patient_menu_callback('btn-visualizza-dati-aggiornati', 'show_updated_patient_data')
     create_patient_menu_callback('btn-gestisci-altri-pazienti', 'manage_other_patients')
 
-    # FOLLOW PATIENT MANAGEMENT
+    # ===============================
+    # CALLBACK SEGUIRE PAZIENTI
+    # ===============================
+
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
         Input('btn-segui-pazienti', 'n_clicks'),
@@ -741,6 +846,7 @@ def register_doctor_callbacks(app):
             if paziente in medico.patients:
                 return get_paziente_gia_seguito_message(paziente_nome)
 
+            # Aggiungi paziente alla lista seguiti
             medico.patients.add(paziente)
             commit()
 
@@ -771,6 +877,7 @@ def register_doctor_callbacks(app):
 
             paziente_nome = f"{paziente.name} {paziente.surname}"
 
+            # Verifica se ha già un medico di riferimento
             if paziente.medico_riferimento is not None:
                 medico_attuale = paziente.medico_riferimento
                 return get_error_message(
@@ -778,8 +885,10 @@ def register_doctor_callbacks(app):
                     f"Dr. {medico_attuale.name} {medico_attuale.surname}."
                 )
 
+            # Imposta come medico di riferimento
             paziente.medico_riferimento = medico
             
+            # Aggiungi anche alla lista pazienti se non presente
             if paziente not in medico.patients:
                 medico.patients.add(paziente)
             
@@ -805,6 +914,7 @@ def register_doctor_callbacks(app):
             return dash.no_update
 
         try:
+            # Parse del button ID
             button_id = ctx.triggered[0]['prop_id']
             json_start = button_id.find('{')
             json_end = button_id.rfind('}') + 1
@@ -822,13 +932,16 @@ def register_doctor_callbacks(app):
             if paziente not in medico.patients:
                 return get_error_message("Non stai seguendo questo paziente.")
 
+            # Rimuovi dalla lista pazienti
             medico.patients.remove(paziente)
 
+            # Se era medico di riferimento, rimuovi anche quello
             if paziente.medico_riferimento == medico:
                 paziente.medico_riferimento = None
     
             commit()
 
+            # Torna al form
             tutti_pazienti = list(Paziente.select())
             pazienti_seguiti = list(medico.patients)
             return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti, medico)
@@ -855,9 +968,9 @@ def register_doctor_callbacks(app):
         return get_segui_paziente_form(tutti_pazienti, pazienti_seguiti, medico)
     
     @app.callback(
-    Output('doctor-content', 'children', allow_duplicate=True),
-    Input('btn-miei-pazienti', 'n_clicks'),
-    prevent_initial_call=True
+        Output('doctor-content', 'children', allow_duplicate=True),
+        Input('btn-miei-pazienti', 'n_clicks'),
+        prevent_initial_call=True
     )
     @db_session
     def show_miei_pazienti(n_clicks):
@@ -870,7 +983,10 @@ def register_doctor_callbacks(app):
     
         return get_miei_pazienti_view(medico)
 
-    # STATISTICS AND CHARTS
+    # ===============================
+    # CALLBACK STATISTICHE E GRAFICI
+    # ===============================
+
     @app.callback(
         Output("doctor-content", "children", allow_duplicate=True),
         Input("btn-statistiche", "n_clicks"),
@@ -889,14 +1005,17 @@ def register_doctor_callbacks(app):
     )
     @db_session
     def load_patients_options(_children):
+        """Carica le opzioni per il selettore pazienti nelle statistiche"""
         patients = list(Paziente.select())
         options = []
+        
         for p in patients:
             cognome = (p.surname or "").strip()
             nome = (p.name or "").strip()
             label = f"{cognome} {nome} ({p.username})".strip()
-            label = " ".join(label.split())
+            label = " ".join(label.split())  # Normalizza spazi
             options.append({"label": label, "value": p.username})
+        
         return options
 
     @app.callback(
@@ -909,7 +1028,10 @@ def register_doctor_callbacks(app):
     )
     @db_session
     def render_week_month_charts_medico(selected_username, weeks_window):
+        """Genera i grafici settimanali e mensili per il paziente selezionato"""
+        
         def empty_fig(msg):
+            """Crea un grafico vuoto con messaggio"""
             f = go.Figure()
             f.update_yaxes(range=[0, 300], title="mg/dL")
             f.add_annotation(text=msg, xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
@@ -925,19 +1047,21 @@ def register_doctor_callbacks(app):
             ef = empty_fig("Seleziona un paziente")
             return ef, ef, ef
 
-        paz = Paziente.get(username=selected_username)
-        all_meas = list(paz.rilevazione) if paz else []
+        # Carica dati paziente
+        paziente = Paziente.get(username=selected_username)
+        misurazioni = list(paziente.rilevazione) if paziente else []
 
-        if not all_meas:
+        if not misurazioni:
             ef = empty_fig("Nessuna glicemia registrata")
             return ef, ef, ef
 
+        # Crea DataFrame
         df = pd.DataFrame(
-            [(m.data_ora, m.valore) for m in all_meas],
+            [(m.data_ora, m.valore) for m in misurazioni],
             columns=["data", "valore"]
         ).set_index("data").sort_index()
 
-        # A) Giorni della settimana (settimana corrente)
+        # GRAFICO A: Giorni settimana (settimana corrente)
         today = _dt.now()
         start_week = (today - timedelta(days=today.weekday())).replace(
             hour=0, minute=0, second=0, microsecond=0
@@ -953,6 +1077,7 @@ def register_doctor_callbacks(app):
         fig_dow.update_xaxes(categoryorder="array", categoryarray=dow_order, title="Giorno della settimana")
 
         if not week_df.empty:
+            # Mappa numeri giorni settimana a nomi italiani
             week_df["giorno_label"] = week_df.index.dayofweek.map({
                 0: "Lunedì", 1: "Martedì", 2: "Mercoledì",
                 3: "Giovedì", 4: "Venerdì", 5: "Sabato", 6: "Domenica"
@@ -972,7 +1097,7 @@ def register_doctor_callbacks(app):
                 xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
             )
 
-        # B) Media settimana per settimana
+        # GRAFICO B: Media settimanale
         weeks_window = weeks_window or 8
         since = _dt.now() - timedelta(weeks=int(weeks_window))
         recent = df.loc[df.index >= since].copy()
@@ -982,6 +1107,7 @@ def register_doctor_callbacks(app):
         fig_week.update_yaxes(range=[0, 300], title="mg/dL")
 
         if not weekly_mean.empty:
+            # Crea etichette settimane
             x_labels = [
                 (ts.strftime("%d/%m") + "→" + (ts + timedelta(days=6)).strftime("%d/%m"))
                 for ts in weekly_mean.index
@@ -1003,7 +1129,7 @@ def register_doctor_callbacks(app):
         
         fig_week.update_layout(xaxis_title="Settimana (Lun→Dom)")
 
-        # C) Media mese per mese (anno corrente)
+        # GRAFICO C: Media mensile (anno corrente)
         year = _dt.now().year
         year_start = pd.Timestamp(year=year, month=1, day=1)
         idx_months = pd.date_range(start=year_start, periods=12, freq="MS")
@@ -1035,6 +1161,7 @@ def register_doctor_callbacks(app):
         add_glucose_reference_lines(fig_month, x_m)
         fig_month.update_layout(xaxis_title=f"Anno ({year})")
 
+        # Applica stile comune
         for fig in (fig_dow, fig_week, fig_month):
             fig.update_layout(
                 height=360, margin=dict(l=10, r=10, t=30, b=10),
@@ -1045,233 +1172,160 @@ def register_doctor_callbacks(app):
 
         return fig_dow, fig_week, fig_month
 
-
     def add_glucose_reference_lines(fig, x_labels):
-        """Aggiunge le linee di riferimento per i valori glicemici"""
+        """Aggiunge linee di riferimento per valori glicemici normali"""
+        # Linea superiore (glicemia alta)
         fig.add_trace(go.Scatter(
-        x=x_labels, y=[180] * len(x_labels),
-        mode="lines", name="Glicemia superiore a 180",
-        line=dict(color="red", dash="dash"), hoverinfo="skip"
-    ))
+            x=x_labels, y=[180] * len(x_labels),
+            mode="lines", name="Glicemia superiore a 180",
+            line=dict(color="red", dash="dash"), hoverinfo="skip"
+        ))
     
+        # Area normale (80-130)
         y_low, y_high = [80] * len(x_labels), [130] * len(x_labels)
         fig.add_trace(go.Scatter(
-        x=x_labels, y=y_low, mode="lines",
-        line=dict(width=0), showlegend=False, hoverinfo="skip", legendgroup="norma"
-    ))
+            x=x_labels, y=y_low, mode="lines",
+            line=dict(width=0), showlegend=False, hoverinfo="skip", legendgroup="norma"
+        ))
         fig.add_trace(go.Scatter(
-        x=x_labels, y=y_high, mode="lines",
-        line=dict(width=0), fill="tonexty",
-        fillcolor="rgba(144,238,144,0.20)",
-        name="Glicemia nella norma (80–130)",
-        hoverinfo="skip", legendgroup="norma"
-    ))
-     
-    #per alert  medico
-    def _fmt_ctx(m):
-        """Rende la frase da mostrare in base a momento_pasto + due_ore_pasto."""
-        c = (getattr(m, "momento_pasto", None) or "").strip().lower()
-        if c == "digiuno":
-            return "a digiuno"
-        if c == "prima_pasto":
-            return "prima del pasto"
-        if c == "dopo_pasto":
-            due = getattr(m, "due_ore_pasto", None)
-            if due is True:
-                return "dopo il pasto (≥ 2 ore)"
-            if due is False:
-                return "dopo il pasto (< 2 ore)"
-            return "dopo il pasto"
-        return None  # fallback
+            x=x_labels, y=y_high, mode="lines",
+            line=dict(width=0), fill="tonexty",
+            fillcolor="rgba(144,238,144,0.20)",
+            name="Glicemia nella norma (80–130)",
+            hoverinfo="skip", legendgroup="norma"
+        ))
 
-    def _is_anomalo(val, m):
-        """Regole di anomalia basate sul modello Glicemia."""
-        if val is None:
-            return False
-        try:
-            v = float(val)
-        except Exception:
-            return False
-
-        # ipo sempre anomala
-        if v < 70:
-            return True
-
-        c = (getattr(m, "momento_pasto", None) or "").strip().lower()
-        if c in ("digiuno", "prima_pasto"):
-            return v < 80 or v > 130
-        if c == "dopo_pasto":
-            return v > 180
-
-        # contesto non specificato -> soglia prudente
-        return v > 180
-    def _norm_txt(s: str) -> str:
-        """Normalizza per confronti robusti: lowercase + spazi normalizzati."""
-        return " ".join((s or "").strip().lower().split())
-    import re
-
-    def _same_drug(a_nome: str, t_nome: str) -> bool:
-        # case-insensitive e IGNORA tutti gli spazi
-        norm = lambda s: re.sub(r"\s+", "", (s or "").strip().lower())
-        return norm(a_nome) == norm(t_nome)
-
-    
-    #per fare in modo di ignorare gli spazi presenti se ci fossero
-    def _same_dose(a_dose: str, t_dose: str) -> bool:
-        # case-insensitive e IGNORA tutti gli spazi interni
-        norm = lambda s: re.sub(r"\s+", "", (s or "").strip().lower())
-        return norm(a_dose) == norm(t_dose)
-
-
-    def _matches_therapy(a, t) -> bool:
-        """
-        True se l'assunzione 'a' corrisponde alla terapia 't'.
-        Se esiste Assunzione.terapia (FK opzionale), usala; altrimenti confronta nome + dosaggio.
-        """
-        if getattr(a, "terapia", None) is not None:
-            return a.terapia == t
-    #fa in modo che anche le maisucole, minuscole,spazi o non spazi vengano considerati validi lo stesso i valori
-    #non vengono visti in modo diverso ad esempio Tachipirina500 ==tachi pirina 500
-        same_drug = _same_drug(a.nome_farmaco, t.nome_farmaco)
-        same_dose = _same_dose(a.dosaggio, t.dosaggio_per_assunzione)
-        return same_drug and same_dose
-
+    # ===============================
+    # CALLBACK SISTEMA NOTIFICHE
+    # ===============================
 
     @db_session
     def build_alerts_for_doctor():
-        """Crea la lista di alert per il medico corrente (solo glicemie anomale)."""
+        """Genera lista completa di alert per il medico corrente"""
         medico = get_current_medico()
         if not medico:
             return []
 
         alerts = []
-
-        #Per la aderenza della terapia e delle prescrizioni del medico
         today_date = datetime.now().date()
         now_iso = datetime.now().isoformat()
-        
-
+    
         pazienti = list(medico.patients) if hasattr(medico, "patients") else []
-        for p in pazienti:
-            patient_label = f"{getattr(p, 'name', '')} {getattr(p, 'surname', '')}".strip()
+    
+        for paziente in pazienti:
+            patient_label = f"{getattr(paziente, 'name', '')} {getattr(paziente, 'surname', '')}".strip()
 
-            # Per ogni terapia del paziente
-            for t in list(p.terapies):
-                start_date = t.data_inizio.date()
-                end_date = t.data_fine.date() if t.data_fine else None
+            # Alert aderenza terapie
+            for terapia in list(paziente.terapies):
+                start_date = terapia.data_inizio.date()
+                end_date = terapia.data_fine.date() if terapia.data_fine else None
+            
+                # Salta terapie non ancora iniziate o già finite
                 if start_date > today_date:
                     continue
                 if end_date is not None and end_date < today_date:
                     continue
-                #in questo modo mi genera aler quando ho 1 terapia di 1 giorno e non seguo
-                #mi genera alert quando ho una terapia di solo 2 giorni che non seguo
-                #mi genera alert quando ho una terapia di 3giorni o piu con data fine o senza data fine
-                ## 1 giorno -> 1; 2 giorni -> 2; >=3 giorni o senza data_fine -> 3 
-                
-                if t.data_fine:
-                    planned_days = (t.data_fine.date() - start_date).days + 1
+            
+                # Calcola giorni di controllo mancanza
+                if terapia.data_fine:
+                    planned_days = (terapia.data_fine.date() - start_date).days + 1
                 else:
-                    planned_days = None  # terapia “aperta”
+                    planned_days = None
+                    
                 base_thresh = planned_days if planned_days in (1, 2) else 3
 
-                
-
-                # Conta giorni consecutivi (a ritroso) senza assunzioni del farmaco
+                # Conta giorni consecutivi senza assunzioni
                 missing_streak = 0
                 for i in range(base_thresh):
                     day = today_date - timedelta(days=i)
                     if day < start_date:
-                        break  # non andare prima dell'inizio terapia
+                        break
 
                     day_start = datetime.combine(day, datetime.min.time())
                     next_day = day_start + timedelta(days=1)
 
+                    # Verifica se c'è un'assunzione corrispondente in quel giorno
                     has_matching_intake = any(
-                        (day_start <= a.data_ora < next_day) and _matches_therapy(a, t)
-                        for a in getattr(p, "assunzione", [])
+                        (day_start <= a.data_ora < next_day) and _matches_therapy(a, terapia)
+                        for a in getattr(paziente, "assunzione", [])
                     )
 
                     if has_matching_intake:
-                        break  # interrompe la serie di giorni mancanti
+                        break
                     missing_streak += 1
 
-                    
-                    
-
+                # Se mancano abbastanza giorni, crea alert
                 if missing_streak >= base_thresh:
                     giorni_txt = "giorno" if missing_streak == 1 else "giorni"
-                    dosaggio = getattr(t, "dosaggio_per_assunzione", None)
+                    dosaggio = getattr(terapia, "dosaggio_per_assunzione", None)
                     dosaggio_txt = f" (dosaggio: {dosaggio})" if dosaggio else ""
 
                     start_str = start_date.strftime("%d/%m/%Y")
-                    if t.data_fine:
-                        end_str = t.data_fine.strftime("%d/%m/%Y")
+                    if terapia.data_fine:
+                        end_str = terapia.data_fine.strftime("%d/%m/%Y")
                         periodo_label = f"dal {start_str} al {end_str}"
                         is_continuativa = False
                     else:
                         end_str = None
-                        periodo_label = f"dal {start_str} (senza data di fine — continuativa)"
+                        periodo_label = f"dal {start_str} (continuativa)"
                         is_continuativa = True
-                    
+                
                     msg = (f"Il paziente {patient_label} non ha registrato assunzioni di "
-                           f"{t.nome_farmaco}{dosaggio_txt} negli ultimi {missing_streak} {giorni_txt} consecutivi."
-                           f"Terapia {periodo_label}."
-                           )
+                        f"{terapia.nome_farmaco}{dosaggio_txt} negli ultimi {missing_streak} {giorni_txt} consecutivi. "
+                        f"Terapia {periodo_label}.")
+                       
                     alerts.append({
-                        "type": "aderenza",
-                        "patient_id": getattr(p, "username", None) or getattr(p, "id", None),
-                        "patient_name": patient_label or getattr(p, "username", ""),
-                        "drug_name": t.nome_farmaco,
+                        "type": "danger",
+                        "patient_id": getattr(paziente, "username", None) or getattr(paziente, "id", None),
+                        "patient_name": patient_label or getattr(paziente, "username", ""),
+                        "drug_name": terapia.nome_farmaco,
                         "dosaggio_per_assunzione": dosaggio,
                         "streak_days": missing_streak,
-                        "timestamp": now_iso,  # quando generiamo l'alert
+                        "timestamp": now_iso,
                         "message": msg,
                         "therapy_start": start_str,
                         "therapy_end": end_str,
                         "therapy_continuativa": is_continuativa
-                         })
+                    })
 
+            # Alert glicemie anomale
+            misurazioni = list(paziente.rilevazione) 
+            for misura in misurazioni:
+                ts = getattr(misura, "data_ora", None)
+                val = getattr(misura, "valore", None)
 
-        # Nessuna finestra temporale: prendo tutte le glicemie dei pazienti seguiti
-        pazienti = list(medico.patients) if hasattr(medico, "patients") else []
-
-        for p in pazienti:
-            uname = getattr(p, "username", None)
-            if not uname:
-                continue
-            name = f"{getattr(p, 'name', '')} {getattr(p, 'surname', '')}".strip()
-            
-            
-            # Tutte le glicemie del paziente
-            misure = list(p.rilevazione) 
-            for m in misure:
-                ts = getattr(m, "data_ora", None)
-                val = getattr(m, "valore", None)
-
-                if _is_anomalo(val, m):
-                    ctx_txt = _fmt_ctx(m)  # "a digiuno" | "prima del pasto" | "dopo il pasto (≥ 2 ore)" | None
+                severity = _is_anomalo_with_severity(val, misura)
+                if severity:
+                    ctx_txt = _fmt_ctx(misura)
                     val_txt = f"{val:g} mg/dL" if val is not None else "valore non disponibile"
                     ts_txt = ts.strftime("%d/%m/%Y %H:%M") if ts else "data sconosciuta"
                     ctx_phrase = f" ({ctx_txt})" if ctx_txt else ""
 
-                    msg = (
-                        f"Il paziente {name} ha rilevato una glicemia anomala di "
-                        f"{val_txt}{ctx_phrase} in data {ts_txt}."
-                    )
+                    # Determina etichetta gravità
+                    if severity == 'danger':
+                        severity_label = "critica"
+                    elif severity == 'danger-orange':
+                        severity_label = "preoccupante"
+                    else:  # warning
+                        severity_label = "anomala"
+
+                    msg = (f"Il paziente {patient_label} ha rilevato una glicemia {severity_label} di "
+                        f"{val_txt}{ctx_phrase} in data {ts_txt}.")
 
                     alerts.append({
-                        "type": "glicemia",
-                        "patient_id": getattr(p, "username", None) or getattr(p, "id", None),
-                        "patient_name": name or getattr(p, "username", ""),
+                        "type": severity,
+                        "patient_id": getattr(paziente, "username", None) or getattr(paziente, "id", None),
+                        "patient_name": patient_label or getattr(paziente, "username", ""),
                         "value_mgdl": val,
-                        "context": ctx_txt,                           # es. "a digiuno", "prima del pasto", ...
-                        "timestamp": ts.isoformat() if ts else None,  # ISO per ordinamento
-                        "message": msg
+                        "context": ctx_txt,
+                        "timestamp": ts.isoformat() if ts else None,
+                        "message": msg,
+                        "severity_label": severity_label
                     })
 
-        # Ordina i risultati dal più recente
-        def _ts(a):
-            t = a.get("timestamp")
+        # Ordina per timestamp (più recenti prima)
+        def _ts(alert):
+            t = alert.get("timestamp")
             try:
                 return _dt.fromisoformat(t) if t else _dt.min
             except Exception:
@@ -1280,8 +1334,6 @@ def register_doctor_callbacks(app):
         alerts.sort(key=_ts, reverse=True)
         return alerts
 
-
-    # === NOTIFICHE — CALLBACKS (MEDICO) =====================================
     @app.callback(
         Output("alerts-store-medico", "data"),
         Output("bell-button-medico", "color"),
@@ -1289,8 +1341,19 @@ def register_doctor_callbacks(app):
         prevent_initial_call=False
     )
     def refresh_doctor_alerts(_):
+        """Aggiorna gli alert e il colore della campanella"""
         alerts = build_alerts_for_doctor()
-        bell_color = "danger" if alerts else "success"  # rosso se ci sono alert
+
+        # Determina colore campanella in base alla priorità degli alert
+        if any(a['type'] == 'danger' for a in alerts):
+            bell_color = "danger"    # Rosso per terapie non seguite O glicemie critiche
+        elif any(a['type'] == 'danger-orange' for a in alerts):
+            bell_color = "orange"   # Arancione per glicemie preoccupanti
+        elif any(a['type'] == 'warning' for a in alerts):
+            bell_color = "warning"   # Giallo per glicemie anomale
+        else:
+            bell_color = "success"   # Verde se tutto ok
+    
         return alerts, bell_color
 
     @app.callback(
@@ -1299,16 +1362,49 @@ def register_doctor_callbacks(app):
         prevent_initial_call=False
     )
     def render_doctor_alerts(alerts):
+        """Renderizza il contenuto del modal degli alert"""
         alerts = alerts or []
         if not alerts:
-            return html.Div("Nessuna notifica.")
+            return html.Div(
+                "Nessuna notifica al momento. Tutti i pazienti seguiti sono in regola!",
+                className="text-center p-3"
+            )
 
-        # lista semplice e leggibile; usa dbc se vuoi più styling
         items = []
-        for a in alerts:
-            msg = a.get("message", "")
-            items.append(html.Div(msg, className="mb-2"))
-        return items
+        for alert in alerts:
+            alert_type = alert.get("type", "info")
+
+            # Mappa tipo alert a stili Bootstrap
+            if alert_type == "danger":  # Terapie non seguite O glicemie critiche (ROSSO)
+                border_type = "danger"
+                title_class = "text-danger"
+                if "drug_name" in alert:  # È un alert terapia
+                    title = f"Mancata aderenza terapeutica - {alert.get('patient_name', 'Paziente')}"
+                else:  # È un alert glicemia critica
+                    title = f"Glicemia critica - {alert.get('patient_name', 'Paziente')}"
+            elif alert_type == "danger-orange":  # Glicemie preoccupanti (ARANCIONE)
+                border_type = "orange"
+                title_class = "text-orange"
+                title = f"Glicemia preoccupante - {alert.get('patient_name', 'Paziente')}"
+            elif alert_type == "warning":  # Glicemie anomale (GIALLO)
+                border_type = "warning"
+                title_class = "text-warning"
+                title = f"Glicemia anomala - {alert.get('patient_name', 'Paziente')}"
+            else:
+                border_type = "info"
+                title_class = "text-info"
+                title = "Notifica"
+
+            items.append(
+                dbc.ListGroupItem([
+                    html.Div([
+                        html.Strong(title, className=title_class)
+                    ]),
+                    html.Div(alert.get("message", ""), className="mt-1 small")
+                ], className=f"border-start border-{border_type} border-3")
+            )
+        
+        return dbc.ListGroup(items, flush=True)
 
     @app.callback(
         Output("alerts-modal-medico", "is_open"),
@@ -1318,9 +1414,11 @@ def register_doctor_callbacks(app):
         prevent_initial_call=True
     )
     def toggle_doctor_modal(_, __, is_open):
+        """Toggle del modal notifiche"""
         ctx = dash.callback_context
         if not ctx.triggered:
             return is_open
+        
         trigger = ctx.triggered[0]["prop_id"].split(".")[0]
         if trigger in ("bell-button-medico", "alerts-modal-close-medico"):
             return not is_open

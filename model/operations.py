@@ -49,24 +49,36 @@ def initialize_db():
                 codice_fiscale='SNRANN90A01H501Z'
             )
             print(f"Created patient: {paziente.username}")
+
+            paziente2 = Paziente(
+                username='FabrisChiara', 
+                password_hash=generate_password_hash('chiara'), 
+                is_admin=False,
+                name='Chiara',
+                surname='Fabris',
+                telefono='+394647474',
+                # Attributi specifici del paziente
+                eta=21,
+                codice_fiscale='CHRFBR21A41H501Y'
+            )
+            print(f"Created patient: {paziente2.username}")
             
             # Crea un medico di esempio
             medico = Medico(
-                username='dr.rossi',
+                username='mario.rossi',
                 password_hash=generate_password_hash('dr.rossi'),
                 is_admin=False,
                 name='Mario',
                 surname='Rossi',
                 telefono='987654321',
                 # Attributi specifici del medico
-                specializzazione='Cardiologia',
                 email = 'mariorossi@gmail.it',
             )
             print(f"Created doctor: {medico.username}")
             
             # Crea un altro medico
             medico2 = Medico(
-                username='dr.bianchi',
+                username='Laubianchi',
                 password_hash=generate_password_hash('dr.bianchi'),
                 is_admin=False,
                 name='Laura',
@@ -74,7 +86,6 @@ def initialize_db():
                 telefono='555666777',
                 # Attributi specifici del medico
                 email = 'laurabianchi@gmail.com',
-                specializzazione='Neurologia',
             )
             print(f"Created doctor: {medico2.username}")
             
@@ -89,9 +100,7 @@ def initialize_db():
             print(f"  - Age: {paziente.eta}, CF: {paziente.codice_fiscale}")
             print(f"  - Assigned doctors: {len(paziente.doctors)}")
             print(f"Doctor 1: {medico.username} ({medico.name} {medico.surname}) - Role: {medico.role}")
-            print(f"  - Specialization: {medico.specializzazione}")
             print(f"Doctor 2: {medico2.username} ({medico2.name} {medico2.surname}) - Role: {medico2.role}")
-            print(f"  - Specialization: {medico2.specializzazione}")
             
             # Forza il commit per assicurarsi che tutto sia salvato
             commit()

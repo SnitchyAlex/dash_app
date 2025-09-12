@@ -223,7 +223,7 @@ def get_doctor_welcome_content():
             ], className="alert-heading"),
             html.P("Seleziona una delle opzioni sopra per iniziare a gestire i tuoi pazienti."),
             html.Hr(),
-            html.P("🔹 Gestisci le terapie farmacologiche dei tuoi pazienti (assegnando una terapia seguirai in automatico un paziente)"),
+            html.P("🔹 Gestisci le terapie farmacologiche dei tuoi pazienti"),
             html.P("🔹 Visualizza i dati clinici e modifica quelli dei tuoi pazienti"),
             html.P("🔹 Inizia a seguire nuovi pazienti o diventa medico di riferimento"),
             html.P("🔹 Analizza gli andamenti glicemici e le statistiche")
@@ -233,7 +233,7 @@ def get_doctor_welcome_content():
 def get_terapie_menu():
     """Menu delle opzioni per gestire le terapie"""
     menu_items = [
-        ("Assegna Nuova Terapia", "btn-assegna-terapia", "primary", "Assegna una nuova terapia farmacologica a un paziente"),
+        ("Assegna Nuova Terapia", "btn-assegna-terapia", "primary", "Assegna una nuova terapia farmacologica a un paziente ➡️ inizierai a seguirlo in automatico"),
         ("Modifica Terapia", "btn-modifica-terapia", "success", "Modifica una terapia esistente"),
         ("Elimina Terapia", "btn-elimina-terapia", "red", "Rimuovi una terapia non più necessaria")
     ]
@@ -990,7 +990,7 @@ def get_segui_paziente_form(tutti_pazienti, pazienti_seguiti, medico):
                     dbc.Alert([
                         html.I(className="fas fa-user-md me-2"),
                         html.Strong("Come medico di riferimento: "),
-                        "Sarai indicato come il medico principale del paziente e lo seguirai automaticamente anche nella gestione generale."
+                        "Sarai indicato come il medico principale del paziente, con il quale condividerai il tuo indirizzo email per renderti reperebile"
                     ], color="primary", className="mb-3"),
                     
                     dbc.Button([html.I(className="fas fa-user-md me-1"), "Diventa Medico di Riferimento"],
@@ -1122,7 +1122,7 @@ def get_miei_pazienti_view(medico):
                 html.Li(f"{p.name} {p.surname} ({p.username})")
                 for p in pazienti_seguiti
             ]) if pazienti_seguiti else html.P("Nessun paziente seguito.", className="text-muted"),
-            
+            html.H6("Questi sono i pazienti di cui puoi modificare/eliminare le terapie e modificare i dati", className="text-secondary mb-3"),
             html.Hr(className="my-4"),
             
             # Sei il medico di riferimento di:
@@ -1131,7 +1131,7 @@ def get_miei_pazienti_view(medico):
                 html.Li(f"{p.name} {p.surname} ({p.username})")
                 for p in pazienti_di_riferimento
             ]) if pazienti_di_riferimento else html.P("Nessun paziente di cui sei medico di riferimento.", className="text-muted"),
-            
+            html.H6("Questi sono i pazienti che possono vedere il tuo indirizzo mail per contattarti", className="text-secondary mb-3"),
             html.Hr(),
             create_back_to_menu_button()
         ])
