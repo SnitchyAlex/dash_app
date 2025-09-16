@@ -19,6 +19,107 @@ from model.paziente import Paziente
 from model.glicemia import Glicemia
 from model.assunzione import Assunzione
 from view.doctor import *
+# =============================================================================
+# FUNZIONE CORE per salvataggio terapia (testabile)
+# =============================================================================
+
+@db_session
+def save_terapia_core(
+    n_clicks,
+    paziente_id,
+    nome_farmaco,
+    dosaggio,
+    assunzioni_giornaliere,
+    indicazioni_select,
+    data_inizio,
+    data_fine,
+    note,
+    get_current_medico_func=None,   # injection per i test
+):
+    if not n_clicks:
+        return dash.no_update
+
+    # Validazione input (usa il validator già definito nel file)
+    error = validate_terapia_data(nome_farmaco, dosaggio, assunzioni_giornaliere, data_inizio, data_fine)
+    if error:
+        return get_error_message(error)
+
+    try:
+        medico = get_current_medico_func() if get_current_medico_func else get_current_medico()
+        if not medico:
+            return get_error_message("Errore: medico non trovato!")
+
+        paziente = Paziente.get(username=paziente_id)
+        if not paziente:
+            return get_error_message("Errore: paziente non trovato!")
+
+        # Associa medico a paziente se necessario
+        if medico not in paziente.doctors:
+            paziente.doctors.add(medico)
+            commit()
+
+        # Preparazione dati
+        indicazioni_finali = get_indicazioni_display(indicazioni_select) if indicazioni_select else ""
+        data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d') if data_inizio else None
+        data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d') if data_fine and data_fine.strip() else None
+
+        # Creazione terapia
+        terapia = Terapia(
+            medico=medico,
+            medico_nome=f"Dr. {medico.name} {medico.surname}",
+            paziente=paziente,
+            nome_farmaco=nome_farmaco.strip(),
+            dosaggio_per_assunzione=dosaggio.strip(),
+            assunzioni_giornaliere=int(assunzioni_giornaliere),
+            indicazioni=indicazioni_finali,
+            data_inizio=data_inizio_obj,
+            data_fine=data_fine_obj,
+            note=note.strip() if note else ''
+        )
+        commit()
+
+        return get_terapia_success_message(
+            f"{paziente.name} {paziente.surname}",
+            nome_farmaco, dosaggio, int(assunzioni_giornaliere),
+            data_inizio_obj, data_fine_obj
+        )
+
+    except Exception as e:
+        return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+# controller/doctor.py
+
+@db_session
+def save_patient_data_modifications_core(
+    patient_username,
+    fattori_rischio,
+    pregresse_patologie,
+    comorbidita,
+    get_current_medico_func=None  # injection per i test
+):
+    """Core per aggiornamento dati paziente (testabile senza Dash)."""
+    medico = get_current_medico_func() if get_current_medico_func else get_current_medico()
+    if not medico:
+        return get_error_message("Errore: medico non trovato!")
+
+    paziente = Paziente.get(username=patient_username)
+    if not paziente:
+        return get_error_message("Paziente non trovato!")
+
+    # Verifica autorizzazioni
+    auth_error = check_medico_paziente_authorization(medico, paziente)
+    if auth_error:
+        return auth_error
+
+    # Aggiornamento dati paziente
+    paziente.fattori_rischio = fattori_rischio.strip() if fattori_rischio else None
+    paziente.pregresse_patologie = pregresse_patologie.strip() if pregresse_patologie else None
+    paziente.comorbidita = comorbidita.strip() if comorbidita else None
+    paziente.info_aggiornate = f"Dr. {medico.name} {medico.surname}"
+
+    commit()
+
+    return get_patient_data_update_success_message(f"{paziente.name} {paziente.surname}")
+
 
 # ===============================
 # FUNZIONI DI SUPPORTO GLOBALI
@@ -115,24 +216,15 @@ def _is_anomalo_with_severity(valore, misura):
 def _is_anomalo(valore, misura):
     """Verifica se un valore glicemico è anomalo (compatibilità)"""
     return _is_anomalo_with_severity(valore, misura) is not None
-
+# Helper per ottenere il medico corrente
+@db_session
+def get_current_medico():
+    return Medico.get(name=current_user.name, surname=current_user.surname)
 # ===============================
-# REGISTRAZIONE CALLBACK PRINCIPALE
-# ===============================
-
-def register_doctor_callbacks(app):
-    """Registra tutti i callback per i medici"""
-
-    # Helper per ottenere il medico corrente
-    @db_session
-    def get_current_medico():
-        return Medico.get(name=current_user.name, surname=current_user.surname)
-
-    # ===============================
-    # VALIDATORI E PARSER
+    # VALIDATORI 
     # ===============================
     
-    def validate_terapia_data(nome_farmaco, dosaggio, assunzioni_giornaliere, data_inizio, data_fine):
+def validate_terapia_data(nome_farmaco, dosaggio, assunzioni_giornaliere, data_inizio, data_fine):
         """Valida i dati inseriti per una terapia"""
         if not all([nome_farmaco, dosaggio, assunzioni_giornaliere]):
             return "Compila tutti i campi obbligatori!"
@@ -166,6 +258,28 @@ def register_doctor_callbacks(app):
                 return "Formato data fine non valido!"
         
         return None
+#Verifica autorizzazione medico
+def check_medico_paziente_authorization(medico, paziente):
+        """Verifica autorizzazione medico su paziente"""
+        if medico not in paziente.doctors:
+            return get_error_message(
+                f"Accesso negato: Non sei autorizzato a gestire {paziente.name} {paziente.surname}."
+            )
+        return None
+
+# ===============================
+# REGISTRAZIONE CALLBACK PRINCIPALE
+# ===============================
+
+def register_doctor_callbacks(app):
+    """Registra tutti i callback per i medici"""
+
+
+
+    # ===============================
+    #  PARSER
+    # ===============================
+    
 
     def parse_composite_key(composite_key):
         """Parse della chiave composita per identificare le terapie"""
@@ -306,56 +420,17 @@ def register_doctor_callbacks(app):
     @db_session
     def save_terapia(n_clicks, paziente_id, nome_farmaco, dosaggio, assunzioni_giornaliere,
                      indicazioni_select, data_inizio, data_fine, note):
-        if not n_clicks:
-            return dash.no_update
-
-        # Validazione dati
-        validation_error = validate_terapia_data(nome_farmaco, dosaggio, assunzioni_giornaliere, data_inizio, data_fine)
-        if validation_error:
-            return get_error_message(validation_error)
-
-        try:
-            medico = get_current_medico()
-            if not medico:
-                return get_error_message("Errore: medico non trovato!")
-
-            paziente = Paziente.get(username=paziente_id)
-            if not paziente:
-                return get_error_message("Errore: paziente non trovato!")
-
-            # Associa medico a paziente se necessario
-            if medico not in paziente.doctors:
-                paziente.doctors.add(medico)
-                commit()
-            
-            # Preparazione dati
-            indicazioni_finali = get_indicazioni_display(indicazioni_select) if indicazioni_select else ""
-            data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d') if data_inizio else None
-            data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d') if data_fine and data_fine.strip() else None
-
-            # Creazione terapia
-            terapia = Terapia(
-                medico=medico,
-                medico_nome=f"Dr. {medico.name} {medico.surname}",
-                paziente=paziente,
-                nome_farmaco=nome_farmaco.strip(),
-                dosaggio_per_assunzione=dosaggio.strip(),
-                assunzioni_giornaliere=int(assunzioni_giornaliere),
-                indicazioni=indicazioni_finali,
-                data_inizio=data_inizio_obj,
-                data_fine=data_fine_obj,
-                note=note.strip() if note else ''
-            )
-            commit()
-
-            return get_terapia_success_message(
-                f"{paziente.name} {paziente.surname}",
-                nome_farmaco, dosaggio, int(assunzioni_giornaliere),
-                data_inizio_obj, data_fine_obj
-            )
-
-        except Exception as e:
-            return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+        return save_terapia_core(
+        n_clicks,
+        paziente_id,
+        nome_farmaco,
+        dosaggio,
+        assunzioni_giornaliere,
+        indicazioni_select,
+        data_inizio,
+        data_fine,
+        note
+    )
 
     @app.callback(
         Output('doctor-content', 'children', allow_duplicate=True),
@@ -744,28 +819,12 @@ def register_doctor_callbacks(app):
             return dash.no_update
 
         try:
-            medico = get_current_medico()
-            if not medico:
-                return get_error_message("Errore: medico non trovato!")
-
-            paziente = Paziente.get(username=patient_username)
-            if not paziente:
-                return get_error_message("Paziente non trovato!")
-
-            # Verifica autorizzazioni
-            auth_error = check_medico_paziente_authorization(medico, paziente)
-            if auth_error:
-                return auth_error
-
-            # Aggiornamento dati paziente
-            paziente.fattori_rischio = fattori_rischio.strip() if fattori_rischio else None
-            paziente.pregresse_patologie = pregresse_patologie.strip() if pregresse_patologie else None
-            paziente.comorbidita = comorbidita.strip() if comorbidita else None
-            paziente.info_aggiornate = f"Dr. {medico.name} {medico.surname}"
-
-            commit()
-
-            return get_patient_data_update_success_message(f"{paziente.name} {paziente.surname}")
+            return save_patient_data_modifications_core(
+                patient_username,
+            fattori_rischio,
+            pregresse_patologie,
+            comorbidita
+        )
 
         except Exception as e:
             return get_error_message(f"Errore durante il salvataggio: {str(e)}")

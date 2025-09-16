@@ -33,6 +33,173 @@ VALIDATION_LIMITS = {
     'MIN_NAME_LENGTH': 2,
     'MIN_DESCRIPTION_LENGTH': 2
 }
+# =============================================================================
+# FUNZIONE CORE per poter fare i test
+# =============================================================================
+# ---funzione core per livello di glicemia ----------------------
+@db_session
+def _save_glicemia_measurement_core(
+    n_clicks,
+    valore,
+    data_misurazione,
+    ora,
+    momento_pasto,
+    note,
+    due_ore_pasto,
+    username: str | None = None,   # opzionale: utile nei test per bypassare current_user
+):
+    if not n_clicks:
+        return dash.no_update, dash.no_update
+
+    # Validazione input (usa la tua funzione esistente)
+    error = _validate_glicemia_input(valore, data_misurazione, ora, momento_pasto, due_ore_pasto)
+    if error:
+        return error, dash.no_update
+
+    try:
+        # Permetti ai test di forzare uno username, altrimenti usa current_user
+        user_key = username if username else current_user.username
+        paziente = Paziente.get(username=user_key)
+        if not paziente:
+            return get_error_message("Errore: paziente non trovato!"), dash.no_update
+
+        # Costruisci datetime
+        data_obj = datetime.strptime(data_misurazione, '%Y-%m-%d').date()
+        ora_obj = datetime.strptime(ora, '%H:%M').time()
+        data_ora = datetime.combine(data_obj, ora_obj)
+
+        # Campo "due ore" solo se serve
+        campo_due_ore = due_ore_pasto if momento_pasto == 'dopo_pasto' else None
+
+        # Persistenza
+        Glicemia(
+            paziente=paziente,
+            valore=float(valore),
+            data_ora=data_ora,
+            momento_pasto=momento_pasto,
+            note=note.strip() if note else '',
+            due_ore_pasto=campo_due_ore
+        )
+        commit()
+
+        refresh_data = {'ts': pytime.time()}
+        return get_success_message(valore, data_ora, momento_pasto, due_ore_pasto), refresh_data
+
+    except Exception as e:
+        return get_error_message(f"Errore durante il salvataggio: {str(e)}"), dash.no_update
+
+
+# ==Funzione core per Assunzione per poter essere testata ======================
+@db_session
+def _save_assunzione_core(
+    n_clicks,
+    selected_farmaco,
+    nome_custom,
+    dosaggio,
+    data_assunzione,
+    ora,
+    note,
+    terapie_data,
+    username: str | None = None,   # opzionale per i test
+):
+    if not n_clicks:
+        return dash.no_update, dash.no_update
+
+    # Determina il nome del farmaco (riusa il tuo helper)
+    nome_farmaco = _get_farmaco_name(selected_farmaco, nome_custom, terapie_data)
+
+    # Validazione
+    error = _validate_assunzione_input_updated(selected_farmaco, nome_farmaco, dosaggio, data_assunzione, ora)
+    if error:
+        return error, dash.no_update
+
+    try:
+        user_key = username if username else current_user.username
+        paziente = Paziente.get(username=user_key)
+        if not paziente:
+            return get_error_message("Errore: paziente non trovato!"), dash.no_update
+
+        # Crea datetime
+        data_obj = datetime.strptime(data_assunzione, '%Y-%m-%d').date()
+        ora_obj = datetime.strptime(ora, '%H:%M').time()
+        data_ora = datetime.combine(data_obj, ora_obj)
+
+        # Salva nel DB
+        Assunzione(
+            paziente=paziente,
+            nome_farmaco=nome_farmaco.strip(),
+            dosaggio=dosaggio.strip(),
+            data_ora=data_ora,
+            note=note.strip() if note else ''
+        )
+        commit()
+
+        refresh_data = {'ts': pytime.time()}
+        return get_assunzione_success_message(nome_farmaco, dosaggio, data_ora), refresh_data
+
+    except Exception as e:
+        return get_error_message(f"Errore durante il salvataggio: {str(e)}"), dash.no_update
+# === CORE: salvataggio sintomo (testabile) ===================================
+@db_session
+def _save_sintomo_core(
+    n_clicks,
+    tipo,
+    descrizione,
+    data_inizio,
+    data_fine,
+    frequenza,
+    note,
+    username: str | None = None,   # opzionale per i test
+):
+    if not n_clicks:
+        return dash.no_update
+
+    # Validazione
+    error = _validate_sintomi_input(tipo, descrizione, data_inizio, data_fine, frequenza)
+    if error:
+        return error
+
+    try:
+        user_key = username if username else current_user.username
+        paziente = Paziente.get(username=user_key)
+        if not paziente:
+            return get_error_message("Errore: paziente non trovato!")
+
+        # Conversione date
+        data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d').date()
+        data_fine_obj = None
+        if data_fine and data_fine.strip():
+            data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d').date()
+
+        # Salva nel database
+        Sintomi(
+            paziente=paziente,
+            tipo=tipo,
+            descrizione=descrizione.strip(),
+            data_inizio=data_inizio_obj,
+            data_fine=data_fine_obj,
+            frequenza=frequenza if tipo == 'sintomo' else '',
+            note=note.strip() if note else ''
+        )
+        commit()
+
+        return get_sintomi_success_message(tipo, descrizione, data_inizio_obj, data_fine_obj)
+
+    except Exception as e:
+        return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+@db_session
+def _render_charts_core(glicemie, weeks_window):
+    if not glicemie:
+        return _create_empty_figures("Nessuna glicemia registrata")
+    
+    df = _create_glicemia_dataframe(glicemie)
+
+    return (
+        _create_weekly_dow_chart(df),
+        _create_weekly_avg_chart(df, weeks_window or 8),
+        _create_monthly_avg_chart(df),
+    )
+
 
 # =============================================================================
 # FUNZIONE PRINCIPALE PER REGISTRARE I CALLBACK
@@ -88,44 +255,9 @@ def _register_form_callbacks(app):
     )
     @db_session
     def save_glicemia_measurement(n_clicks, valore, data_misurazione, ora, momento_pasto, note, due_ore_pasto):
-        if not n_clicks:
-            return dash.no_update, dash.no_update
-
-        # Validazione input
-        error = _validate_glicemia_input(valore, data_misurazione, ora, momento_pasto, due_ore_pasto)
-        if error:
-            return error, dash.no_update
-
-        try:
-            paziente = Paziente.get(username=current_user.username)
-            if not paziente:
-                return get_error_message("Errore: paziente non trovato!"), dash.no_update
-
-            # Crea datetime dalla data e ora inserite
-            data_obj = datetime.strptime(data_misurazione, '%Y-%m-%d').date()
-            ora_obj = datetime.strptime(ora, '%H:%M').time()
-            data_ora = datetime.combine(data_obj, ora_obj)
-            
-            # Campo due ore solo se necessario
-            campo_due_ore = due_ore_pasto if momento_pasto == 'dopo_pasto' else None
-
-            # Salva nel database
-            Glicemia(
-                paziente=paziente,
-                valore=float(valore),
-                data_ora=data_ora,
-                momento_pasto=momento_pasto,
-                note=note.strip() if note else '',
-                due_ore_pasto=campo_due_ore
-            )
-            commit()
-            
-            # Aggiorna gli alert
-            refresh_data = {'ts': pytime.time()}
-            return get_success_message(valore, data_ora, momento_pasto, due_ore_pasto), refresh_data
-
-        except Exception as e:
-            return get_error_message(f"Errore durante il salvataggio: {str(e)}"), dash.no_update
+        return _save_glicemia_measurement_core(
+        n_clicks, valore, data_misurazione, ora, momento_pasto, note, due_ore_pasto
+    )
 
     # Form assunzione farmaci - mostra
     @app.callback(
@@ -133,6 +265,8 @@ def _register_form_callbacks(app):
         Input('btn-nuova-assunzione', 'n_clicks'),
         prevent_initial_call=True
     )
+    
+
     def show_assunzione_form(n_clicks):
         if n_clicks:
             return get_nuova_assunzione_form()
@@ -209,44 +343,9 @@ def _register_form_callbacks(app):
     @db_session
     def save_assunzione(n_clicks, selected_farmaco, nome_custom, dosaggio, 
                        data_assunzione, ora, note, terapie_data):
-        if not n_clicks:
-            return dash.no_update, dash.no_update
-
-        # Determina nome farmaco
-        nome_farmaco = _get_farmaco_name(selected_farmaco, nome_custom, terapie_data)
-        
-        # Validazione
-        error = _validate_assunzione_input_updated(selected_farmaco, nome_farmaco, dosaggio, data_assunzione, ora)
-        if error:
-            return error, dash.no_update
-
-        try:
-            paziente = Paziente.get(username=current_user.username)
-            if not paziente:
-                return get_error_message("Errore: paziente non trovato!"), dash.no_update
-
-            # Crea datetime
-            data_obj = datetime.strptime(data_assunzione, '%Y-%m-%d').date()
-            ora_obj = datetime.strptime(ora, '%H:%M').time()
-            data_ora = datetime.combine(data_obj, ora_obj)
-
-            # Salva nel database
-            Assunzione(
-                paziente=paziente,
-                nome_farmaco=nome_farmaco.strip(),
-                dosaggio=dosaggio.strip(),
-                data_ora=data_ora,
-                note=note.strip() if note else ''
-            )
-            commit()
-            
-            refresh_data = {'ts': pytime.time()}
-            return get_assunzione_success_message(nome_farmaco, dosaggio, data_ora), refresh_data
-
-        except Exception as e:
-            print(f"DEBUG: Errore salvataggio assunzione: {str(e)}")
-            return get_error_message(f"Errore durante il salvataggio: {str(e)}"), dash.no_update
-
+        return _save_assunzione_core(
+        n_clicks, selected_farmaco, nome_custom, dosaggio, data_assunzione, ora, note, terapie_data
+    )
     # Form sintomi - mostra
     @app.callback(
         Output('patient-content', 'children', allow_duplicate=True),
@@ -279,43 +378,9 @@ def _register_form_callbacks(app):
          State('textarea-note-sintomo', 'value')],
         prevent_initial_call=True
     )
-    @db_session
+    #@db_session
     def save_sintomo(n_clicks, tipo, descrizione, data_inizio, data_fine, frequenza, note):
-        if not n_clicks:
-            return dash.no_update
-
-        # Validazione
-        error = _validate_sintomi_input(tipo, descrizione, data_inizio, data_fine, frequenza)
-        if error:
-            return error
-
-        try:
-            paziente = Paziente.get(username=current_user.username)
-            if not paziente:
-                return get_error_message("Errore: paziente non trovato!")
-
-            # Conversione date
-            data_inizio_obj = datetime.strptime(data_inizio, '%Y-%m-%d').date()
-            data_fine_obj = None
-            if data_fine and data_fine.strip():
-                data_fine_obj = datetime.strptime(data_fine, '%Y-%m-%d').date()
-
-            # Salva nel database
-            Sintomi(
-                paziente=paziente,
-                tipo=tipo,
-                descrizione=descrizione.strip(),
-                data_inizio=data_inizio_obj,
-                data_fine=data_fine_obj,
-                frequenza=frequenza if tipo == 'sintomo' else '',
-                note=note.strip() if note else ''
-            )
-            commit()
-
-            return get_sintomi_success_message(tipo, descrizione, data_inizio_obj, data_fine_obj)
-
-        except Exception as e:
-            return get_error_message(f"Errore durante il salvataggio: {str(e)}")
+        return _save_sintomo_core(n_clicks, tipo, descrizione, data_inizio, data_fine, frequenza, note)
 
     # Pulsanti "Nuova registrazione" e "Annulla"
     _register_form_actions(app)
