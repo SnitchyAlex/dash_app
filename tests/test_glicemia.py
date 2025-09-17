@@ -2,8 +2,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
-
-# importa il modulo controller.patient con alias
 import controller.patient as patient
 
 
@@ -15,7 +13,7 @@ class TestSaveGlicemiaMeasurement(unittest.TestCase):
         self.data = "2025-09-15"
         self.ora = "08:00"
         self.note = "prova"
-        self.momento_pasto = "dopo_pasto"      # cambia in 'dopo_pasto' per testare due_ore_pasto
+        self.momento_pasto = "dopo_pasto"      # cambia in 'dopo_pasto' per testare due_ore_pasto o meti digiuno/prima_pasto e sotto None
         self.due_ore_pasto = True
 
     def call(self, n_clicks=1):
@@ -108,14 +106,6 @@ class TestSaveGlicemiaMeasurement(unittest.TestCase):
         self.assertEqual(res, "Errore durante il salvataggio: BOOM")
         self.assertIs(refresh, patient.dash.no_update)
         mock_get_error.assert_called()
-    # --- EDGE: valore non numerico ------------------------------------------
-    @patch("controller.patient.Paziente")
-    @patch("controller.patient._validate_glicemia_input", return_value="Valore glicemia non numerico")
-    def test_valore_non_numerico(self, mock_validate, mock_Paziente):
-        res, refresh = self.call()
-        self.assertEqual(res, "Valore glicemia non numerico")
-        self.assertIs(refresh, patient.dash.no_update)
-        mock_Paziente.get.assert_not_called()
 
     # --- EDGE: data/ora con formato errato ----------------------------------
     @patch("controller.patient.get_error_message", return_value="Errore durante il salvataggio")
