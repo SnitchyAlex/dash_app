@@ -19,7 +19,7 @@ from model.sintomi import Sintomi
 from model.terapia import Terapia
 from view.patient import *
 
-print("DEBUG: controller/patient.py caricato!")
+
 
 # COSTANTI CONFIGURAZIONE
 CLINICAL_THRESHOLDS = {
@@ -187,18 +187,6 @@ def _save_sintomo_core(
 
     except Exception as e:
         return get_error_message(f"Errore durante il salvataggio: {str(e)}")
-@db_session
-def _render_charts_core(glicemie, weeks_window):
-    if not glicemie:
-        return _create_empty_figures("Nessuna glicemia registrata")
-    
-    df = _create_glicemia_dataframe(glicemie)
-
-    return (
-        _create_weekly_dow_chart(df),
-        _create_weekly_avg_chart(df, weeks_window or 8),
-        _create_monthly_avg_chart(df),
-    )
 
 
 # =============================================================================

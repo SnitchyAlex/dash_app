@@ -197,8 +197,7 @@ def _is_anomalo_with_severity(valore, misura):
         return 'danger-orange'
     elif momento == "dopo_pasto" and 201 <= v <= 250:
         return 'danger-orange'
-    elif not momento and 201 <= v <= 250:  # momento non specificato
-        return 'danger-orange'
+    
     
     # Valori lievi (GIALLI)
     if 70 <= v <= 90:
@@ -208,8 +207,7 @@ def _is_anomalo_with_severity(valore, misura):
         return 'warning'
     elif momento == "dopo_pasto" and 181 <= v <= 200:
         return 'warning'
-    elif not momento and 181 <= v <= 200:
-        return 'warning'
+    
     
     return None
 

@@ -119,9 +119,9 @@ def get_admin_dashboard():
                         ], className="alert-heading"),
                         html.P("Seleziona una delle opzioni sopra per iniziare a gestire il sistema."),
                         html.Hr(),
-                        html.P("📹 Crea nuovi utenti per medici o pazienti"),
-                        html.P("📹 Visualizza liste complete di medici e pazienti"),
-                        html.P("📹 Elimina utenti quando necessario")
+                        html.P("🔹 Crea nuovi utenti per medici o pazienti"),
+                        html.P("🔹 Visualizza liste complete di medici e pazienti"),
+                        html.P("🔹 Elimina utenti quando necessario")
                     ], color="light", className="mb-4")
                 ])
             ])

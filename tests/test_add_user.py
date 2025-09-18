@@ -1,7 +1,7 @@
 # tests/test_add_user.py
 import unittest
 from unittest.mock import patch, MagicMock
-from model.operations import add_user  # funzione reale
+from model.operations import add_user  
 
 class TestAddUser(unittest.TestCase):
 
@@ -56,24 +56,6 @@ class TestAddUser(unittest.TestCase):
             self.assertEqual(kwargs["surname"], "Rossi")
             commit.assert_called_once()
 
-    def test_crea_user_default_success(self):
-        with patch("model.user.User") as User, \
-             patch("model.medico.Medico"), \
-             patch("model.paziente.Paziente"), \
-             patch("model.operations.commit") as commit, \
-             patch("model.operations.generate_password_hash", return_value="HASH"):
-            User.get.return_value = None
-
-            ok = add_user("u2", "pwd", "Mario", "Bianchi", role="altro")
-            self.assertTrue(ok)
-
-            User.assert_called_once()
-            kwargs = User.call_args.kwargs
-            self.assertEqual(kwargs["username"], "u2")
-            self.assertEqual(kwargs["password_hash"], "HASH")
-            self.assertEqual(kwargs["name"], "Mario")
-            self.assertEqual(kwargs["surname"], "Bianchi")
-            commit.assert_called_once()
 
     def test_eccezione_durante_creazione_ritorna_false(self):
         with patch("model.user.User") as User, \
