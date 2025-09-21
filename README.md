@@ -29,24 +29,50 @@ dash_app/
 |   ├── sfondo.gif      # Sfondo animato bubbles
 |   |── style.css       # File css per lo stile generale
 |   |── wave.gif
+|   |── bell_ring.png
+    |── dati.png
+    |── farmaco.png
+    |── glicemia.png
+    |── gmail.png
+    |── grafico.png
+    |── messaggi.png
+    |── pc.gif
+    |── segui.png
+    |── sintomi.png
+    |── terapia.png
+    |── valigia.png
+    |── wave.png
+    
+
 
 |
 ├── data/
 |   |__dash_app.sqlite  # file.sqlite (database)
 |
 ├── model/              # Model (DB e dati)
-│   |__ __init__.py
-|   ├── database.py     # Config SQLite
-│   |── medico.py       # Classi/tabelle DB
-|   |── paziente.py
-|   ├── user.py 
+│     |__ __init__.py
+|     ├── database.py     # Config SQLite
+│     |── medico.py       # Classi/tabelle DB
+|     |── paziente.py
+|     ├── user.py
+|     ├── glicemia.py
+|     ├── operations.py
+|     ├── sintomi.py
+|     ├── terapia.py
+|     └── assunzione.py
+
 │
 ├── view/              # View (UI)
 │   ├── layout.py      # Layout dash
+    ├── doctor.py
+    ├── patient.py
 |   |── auth.py       
-│   └── admin.oy
+│   └── admin.py
 │
 ├── controller/         # Controller (logica)
+    ├──__init__.py
+    ├── doctor.py
+    ├── patient.py
 │   ├── admin.py    
 │   └── auth.py         # Autenticazione (Flask-Login)
 │
